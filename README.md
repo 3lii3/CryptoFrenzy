@@ -40,7 +40,7 @@ Check your favourite stock's information to learn more!
 
 ![3](https://github.com/user-attachments/assets/11293086-10c4-404e-bd00-2cb7fb67ecf3)
 
-## Default config:
+## Formats:
+[Default Config](https://github.com/3lii3/CryptoFrenzy/blob/f53e71c4c9ade77340c4425fa7555ca427437941/CryptoFrenzy/src/main/resources/config.yml)
 
-
-
+[Adding stock format](https://github.com/3lii3/CryptoFrenzy/blob/f53e71c4c9ade77340c4425fa7555ca427437941/CryptoFrenzy/src/main/resources/config.yml#L43C1-L51C30)
