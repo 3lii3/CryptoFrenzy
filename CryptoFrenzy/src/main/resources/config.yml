@@ -1,0 +1,78 @@
+# CryptoFrenzy Plugin Configuration
+
+player:
+  cooldown:
+    # Shall cooldown be enabled? Default: true
+    # Advice: Enable the cooldown to avoid a lot of database requests and better performance.
+    enabled: true
+    # Time for cooldown in seconds (if enabled) Default: 5 seconds.
+    time: 5
+
+# How frequent should the database update in minutes (Price history only, Don't set below 30 for best performance.)
+DatabaseUpdateFrequency: 30
+## The stock database is only used to fetch for history like price before 1hr, 24hrs, 7ds and not anything extra.
+
+
+economy:
+  #Tax to get from player for each share, 10 is 10% / Advised: 2.5
+  tax-rate: 2.5
+  #Amount to deduct from player's balance for every transaction (leave 0 to disable):
+  market-fee: 5
+
+Events:
+  #Randomly crash the market every few days
+  market-crash:
+    enabled: true
+    # minimum % for a market to go down
+    min-rate: 10
+    # maximum % for a market to go down
+    max-rate: 25
+
+Stocks:
+  #Make sure to have all stock shortnames in uppercase!
+
+  #format:
+
+  #stock:
+    #stock-name: "Stock"
+    #description: "Default description"
+    #price: 10000
+    #max-shares: 10
+    #market-shares: 100000
+
+  BTC:
+    currency-name: "Bitcoin"
+    description: "A cryptocurrency coin."
+    #Starting price for one stock
+    price: 100
+    #Max shares owned by a single player
+    max-shares: 100000
+    #Shares circulating in the market
+    market-shares: 6400000000
+  AAPL:
+    currency-name: "Apple LLC"
+    description: "Apple stocks."
+    #Starting price for one stock
+    price: 250
+    #Max shares owned by a single player
+    max-shares: 100000
+    #Shares circulating in the market
+    market-shares: 15100000000
+  NVDA:
+    currency-name: "Nvidia Stocks"
+    description: "NVIDIA CORP stocks."
+    #Starting price for one stock
+    price: 150
+    #Max shares owned by a single player
+    max-shares: 100000
+    #Shares circulating in the market
+    market-shares: 24500000000
+
+
+#Database information, Doesn't need to be edited, Edit when needed.
+database:
+  host: localhost
+  port: 3306
+  name: CryptoFrenzyDB
+  user: CfzAdmin
+  password: CfzAdminPassword

@@ -1,0 +1,45 @@
+name: CryptoFrenzy
+version: 1.0.0
+main: com.ali.CryptoFrenzy.CryptoFrenzy
+api-version: 1.21
+depend: [Vault]
+
+commands:
+  stocks:
+    description: Manage stocks in the game
+    aliases: [stock]
+  CryptoFrenzy:
+    description: Shows information about the creator
+    aliases: [crypto]
+
+permissions:
+  stocks.cooldown:
+    description: Makes players skip cooldown.
+    default: op
+  stocks.portfolio:
+    description: Allows player to see their portfolio.
+    default: op
+  stocks.sell:
+    description: Allows selling stock.
+    default: op
+  stocks.buy:
+    description: Allows buying stock.
+    default: op
+  stocks.send:
+    description: Allows sending stock to other players.
+    default: op
+  stocks.fetch:
+    description: Allows fetching stock information.
+    default: op
+  stocks.remove:
+    description: Allows removing stock shares from player.
+    default: op
+  stocks.add:
+    description: Allows adding stock shares from player.
+    default: op
+  stocks.reload:
+    description: Allows reloading the plugin.
+    default: op
+  stocks.help:
+    description: Allows /stock help command.
+    default: op
