@@ -73,6 +73,5 @@ Stocks:
 database:
   host: localhost
   port: 3306
-  name: CryptoFrenzyDB
   user: CfzAdmin
   password: CfzAdminPassword
