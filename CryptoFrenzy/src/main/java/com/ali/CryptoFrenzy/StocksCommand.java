@@ -6,6 +6,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Ambient;
 import org.bukkit.entity.Player;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.OfflinePlayer;
@@ -24,6 +25,7 @@ public class StocksCommand implements CommandExecutor {
     PricingHandler pricingHandler;
     private FileConfiguration pricesConfig;
     private StockHistory stockHistory;
+    private PlayerData playerData;
 
     // To store the last command execution times for each player
     private Map<Player, Long> lastCommandTime = new HashMap<>();
@@ -156,7 +158,12 @@ public class StocksCommand implements CommandExecutor {
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                     return false;
                 }
-                removeStockFromPlayer(args[1], args[2],Integer.parseInt(args[3]), player);
+                if (!playerData.playerExists(UUID.fromString(args[1]).toString())) {
+                    player.sendMessage(ChatColor.RED+"This player does not exist.");
+                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+                    return false;
+                }
+                removeStockFromPlayer(Bukkit.getOfflinePlayer(args[1].toString()), args[2],Integer.parseInt(args[3]), player);
                 break;
 
             case "add":
@@ -175,7 +182,13 @@ public class StocksCommand implements CommandExecutor {
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                     return false;
                 }
-                addStockToPlayer(args[1], args[2],Integer.parseInt(args[3]), player);
+                if (!playerData.playerExists(UUID.fromString(args[1]).toString())) {
+                    player.sendMessage(ChatColor.RED+"This player does not exist.");
+                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+                    return false;
+                }
+
+                addStockToPlayer(Bukkit.getOfflinePlayer(args[1].toString()), args[2],Integer.parseInt(args[3]), player);
                 break;
 
             case "send":
@@ -194,7 +207,13 @@ public class StocksCommand implements CommandExecutor {
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                     return false;
                 }
-                sendToPlayer(args[1], args[2],Integer.parseInt(args[3]), player);
+                if (!playerData.playerExists(UUID.fromString(args[1]).toString())) {
+                    player.sendMessage(ChatColor.RED+"This player does not exist.");
+                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+                    return false;
+                }
+
+                sendToPlayer(args[1].toString(), args[2],Integer.parseInt(args[3]), player);
                 break;
 
             case "fetch":
@@ -225,7 +244,12 @@ public class StocksCommand implements CommandExecutor {
                 if (args.length < 2) {
                     showPortfolio(player, player);
                 } else {
-                    OfflinePlayer searchPlayer = Bukkit.getOfflinePlayer(args[1]);
+                    if (!player.hasPermission("stocks.portfolio.other")) {
+                        player.sendMessage(ChatColor.RED + "You do not have permission to view other's portfolios.");
+                        player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+                        return false;
+                    }
+                    OfflinePlayer searchPlayer = Bukkit.getOfflinePlayer(args[1].toString());
                     if (searchPlayer.hasPlayedBefore()) {
                         showPortfolio(searchPlayer, player);
                     } else {
@@ -271,19 +295,16 @@ public class StocksCommand implements CommandExecutor {
         for (Map.Entry<String, Integer> entry : coins.entrySet()) {
             String stockName = entry.getKey();
             int CoinAmount = entry.getValue();
-            Economy economy = CryptoFrenzy.getEconomy();
 
             if (Objects.equals(stockName, stock)) {
                 if ( CoinAmount >= amount) {
                     CryptoFrenzy.getPlayerData().removeCoins(sender.getUniqueId().toString(), stock ,amount);
-
-                    double totalAmountReceived = pricingHandler.calculatePriceForEachShare(stock, amount, false);
-                    economy.depositPlayer(player, totalAmountReceived);
-
-                    pricingHandler.adjustPriceBasedOnSupplyDemand(stock, amount, false);
-
-                    sender.sendMessage(ChatColor.GREEN + "Successfully sold " + amount + " " + stock + " stock for " + totalAmountReceived + "$!");
+                    sender.sendMessage(ChatColor.GREEN + "Successfully sent "+amount+" share(s) of stock"+stock+" to "+player+" !");
                     sender.playSound(sender.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+
+                    String playerUUID = String.valueOf(UUID.fromString(player));
+
+                    CryptoFrenzy.getPlayerData().addCoins(playerUUID, stock, amount, player);
                 } else {
                     sender.sendMessage(ChatColor.RED+"You don't have enough shares of "+ChatColor.YELLOW+stockName+ChatColor.RED+", You currently have: "+ChatColor.YELLOW+CoinAmount);
                     sender.playSound(sender.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
@@ -294,38 +315,32 @@ public class StocksCommand implements CommandExecutor {
         return true;
     }
 
-    private boolean removeStockFromPlayer(String player, String stock, Integer amount, Player sender) {
+    private boolean removeStockFromPlayer(OfflinePlayer player, String stock, Integer amount, Player sender) {
         PlayerData playerData = CryptoFrenzy.getPlayerData();
 
-        if (!playerData.playerExists(String.valueOf((UUID.fromString(String.valueOf(player)))))) {
+        if (!playerData.playerExists(player.getUniqueId().toString())) {
             sender.sendMessage(ChatColor.RED+"This player does not exist.");
             sender.playSound(sender.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
             return false;
         }
 
-        UUID playerUUID = UUID.fromString(player);
-        String playerString = String.valueOf(playerUUID);
-
-        playerData.removeCoins(playerString, stock, amount);
+        playerData.removeCoins(player.getUniqueId().toString(), stock, amount);
 
         sender.sendMessage(ChatColor.GREEN + "Successfully removed "+amount+" share(s) of "+stock+" from "+player+" !");
         sender.playSound(sender.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
         return true;
     }
 
-    private boolean addStockToPlayer(String player, String stock, Integer amount, Player sender) {
+    private boolean addStockToPlayer(OfflinePlayer player, String stock, Integer amount, Player sender) {
         PlayerData playerData = CryptoFrenzy.getPlayerData();
 
-        if (!playerData.playerExists(String.valueOf((UUID.fromString(String.valueOf(player)))))) {
+        if (!playerData.playerExists(player.getUniqueId().toString())) {
             sender.sendMessage(ChatColor.RED+"This player does not exist.");
             sender.playSound(sender.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
             return false;
         }
 
-        UUID playerUUID = UUID.fromString(player);
-        String playerString = String.valueOf(playerUUID);
-
-        playerData.removeCoins(playerString, stock, amount);
+        playerData.removeCoins(player.getUniqueId().toString(), stock, amount);
         sender.sendMessage(ChatColor.GREEN + "Successfully added "+amount+" share(s) of "+stock+" to "+player+" !");
         sender.playSound(sender.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
         return true;
@@ -333,15 +348,11 @@ public class StocksCommand implements CommandExecutor {
 
     private boolean handleCryptoFrenzyCommand(Player player) {
         StringBuilder message = new StringBuilder();
-        message.append(ChatColor.DARK_GRAY).append("===== ").append(ChatColor.YELLOW).append("CryptoFrenzy Plugin").append(ChatColor.DARK_GRAY).append(" =====\n");
-        message.append(ChatColor.YELLOW).append("Hello user! This plugin was created by 3lii3! You can find this plugin in the following link: \n");
-        TextComponent url = new TextComponent("https://www.spigotmc.org/resources/*-coming soon-* \n");
-        url.setColor(ChatColor.BLUE);
-        url.setItalic(true);
-        url.setUnderlined(true);
-        player.spigot().sendMessage(new TextComponent(message.toString()));
-        player.spigot().sendMessage(url);
-        message.append(ChatColor.DARK_GRAY).append("==============================\n");
+        message.append(ChatColor.GOLD).append("===== ").append(ChatColor.YELLOW).append("CryptoFrenzy Plugin").append(ChatColor.GOLD).append(" =====\n");
+        message.append(ChatColor.WHITE).append("Hello user! This plugin was created by 3lii3! You can find this plugin in the following links: \n");
+        message.append(ChatColor.WHITE+"Discord: "+ChatColor.ITALIC+ChatColor.UNDERLINE+ChatColor.BLUE+"https://discord.gg/wjcNcY5UDr \n");
+        message.append(ChatColor.WHITE+"SpigotMC: "+ChatColor.ITALIC+ChatColor.UNDERLINE+ChatColor.BLUE+"https://spigotmc.org/resources/*coming soon* \n");
+        message.append(ChatColor.GOLD).append("==============================\n");
         player.sendMessage(message.toString());
         return true;
     }
@@ -371,23 +382,52 @@ public class StocksCommand implements CommandExecutor {
     }
 
     private void buyStock(Player player, String stock, int amount) {
+        PlayerData playerData = CryptoFrenzy.getPlayerData();
         Economy economy = CryptoFrenzy.getEconomy();
+
         int fee = plugin.getConfig().getInt("economy.market-fee");
-        int tax = plugin.getConfig().getInt("economy.tax-rate");
 
         double Price =  pricingHandler.calculatePriceForEachShare(stock, amount, true) + fee;
 
-        if (economy.has(player, Price)) {
-            economy.withdrawPlayer(player, Price);
-            player.sendMessage(ChatColor.GREEN+"Successfully bought " + amount + " shares of " + stock + " for " + Price + "$.");
-            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
-            pricingHandler.adjustPriceBasedOnSupplyDemand(stock, amount, true);
-            CryptoFrenzy.getPlayerData().addCoins(player.getUniqueId().toString(), stock ,amount, player.getName());
-        } else {
+        int maxAmount = plugin.getConfig().getInt("Stocks."+stock.toUpperCase() +".max-shares");
 
-            double AmountNeeded = Price - economy.getBalance(player);
-            player.sendMessage(ChatColor.RED+"You need "+ChatColor.YELLOW+AmountNeeded+ChatColor.RED+" more to buy this amount of stocks!");
-            player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+        Map<String, Integer> coins = playerData.fetchPlayerCoins(player.getUniqueId().toString());
+        for (Map.Entry<String, Integer> entry : coins.entrySet()) { String stockName = entry.getKey(); int CoinAmount = entry.getValue();
+            if (Objects.equals(stockName, stock)) {
+                if ( CoinAmount >= maxAmount) {
+                    player.sendMessage(ChatColor.RED+"You can't have more than "+ChatColor.YELLOW+maxAmount+ChatColor.RED+" shares of "+ChatColor.YELLOW+stock+ChatColor.RED+", You currently have: "+ChatColor.YELLOW+CoinAmount);
+                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+                } else {
+                    if (economy.has(player, Price)) {
+                        economy.withdrawPlayer(player, Price);
+                        player.sendMessage(ChatColor.GREEN+"Successfully bought " + amount + " shares of " + stock + " for " + Price + "$.");
+                        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+                        pricingHandler.adjustPriceBasedOnSupplyDemand(stock, amount, true);
+                        CryptoFrenzy.getPlayerData().addCoins(player.getUniqueId().toString(), stock ,amount, player.getName());
+                    } else {
+
+                        double AmountNeeded = Price - economy.getBalance(player);
+                        player.sendMessage(ChatColor.RED+"You need "+ChatColor.YELLOW+AmountNeeded+ChatColor.RED+" more to buy this amount of stocks!");
+                        player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+                    }
+                }
+            } else if (amount <= maxAmount){
+                if (economy.has(player, Price)) {
+                    economy.withdrawPlayer(player, Price);
+                    player.sendMessage(ChatColor.GREEN+"Successfully bought " + amount + " shares of " + stock + " for " + Price + "$.");
+                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+                    pricingHandler.adjustPriceBasedOnSupplyDemand(stock, amount, true);
+                    CryptoFrenzy.getPlayerData().addCoins(player.getUniqueId().toString(), stock ,amount, player.getName());
+                } else {
+
+                    double AmountNeeded = Price - economy.getBalance(player);
+                    player.sendMessage(ChatColor.RED+"You need "+ChatColor.YELLOW+AmountNeeded+ChatColor.RED+" more to buy this amount of stocks!");
+                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+                }
+            } else {
+                player.sendMessage(ChatColor.RED+"You can't have more than "+ChatColor.YELLOW+maxAmount+ChatColor.RED+" shares of "+ChatColor.YELLOW+stock);
+                player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+            }
         }
     }
 
@@ -481,11 +521,11 @@ public class StocksCommand implements CommandExecutor {
         // Get PlayerData instance
         PlayerData playerData = CryptoFrenzy.getPlayerData();
 
-        if (!playerData.playerExists(String.valueOf((UUID.fromString(String.valueOf(player)))))) {
+        if (!playerData.playerExists(player.getUniqueId().toString())) {
             sender.sendMessage(ChatColor.RED+"This player does not exist.");
+            sender.playSound(sender.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
             return false;
         }
-
         // Fetch the player's coin data using their UUID
         Map<String, Integer> coins = playerData.fetchPlayerCoins(player.getUniqueId().toString());
 

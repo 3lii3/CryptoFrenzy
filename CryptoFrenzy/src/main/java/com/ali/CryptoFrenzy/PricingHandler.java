@@ -4,17 +4,24 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import java.io.File;
 import java.io.IOException;
-import java.time.Instant;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
 
 public class PricingHandler {
 
     private FileConfiguration pricesConfig;
     private File pricesFile;
-    private CryptoFrenzy plugin;
+    final private CryptoFrenzy plugin;
+    private StockHistory stockHistory;
 
     public PricingHandler(CryptoFrenzy plugin) {
         this.plugin = plugin;
         loadPricesFile();
+
+        Connection stockDBConnection = plugin.getConnection();
+
+        this.stockHistory = new StockHistory(stockDBConnection, plugin);
     }
 
     public void Reload() {
@@ -62,7 +69,7 @@ public class PricingHandler {
 
         double currentPrice = pricesConfig.getDouble("Stocks." + stockName + ".Price");
         int supply = pricesConfig.getInt("Stocks." + stockName + ".totalShares");
-        int demand = pricesConfig.getInt("Stocks." + stockName + ".marketShares");
+        int demand = pricesConfig.getInt("Stocks." + stockName + ".market-shares");
 
         if (isBuying) {
             demand += amount;
@@ -75,7 +82,7 @@ public class PricingHandler {
         double newPrice = currentPrice * priceAdjustmentFactor;
 
         pricesConfig.set("Stocks." + stockName + ".Price", newPrice);
-        pricesConfig.set("Stocks." + stockName + ".marketShares", demand);
+        pricesConfig.set("Stocks." + stockName + ".market-shares", demand);
 
         try {
             pricesConfig.save(pricesFile);
@@ -83,13 +90,14 @@ public class PricingHandler {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        updatePricesYMLfromHistory();
     }
 
     public double calculatePriceForEachShare(String stockName, int amount, boolean isBuying) {
         double currentPrice = pricesConfig.getDouble("Stocks." + stockName + ".Price");
         int tax = plugin.getConfig().getInt("economy.tax-rate");
         int supply = pricesConfig.getInt("Stocks." + stockName + ".totalShares");
-        int demand = pricesConfig.getInt("Stocks." + stockName + ".marketShares");
+        int demand = pricesConfig.getInt("Stocks." + stockName + ".market-shares");
 
         double priceForShare = currentPrice;
 
@@ -104,5 +112,18 @@ public class PricingHandler {
             }
         }
         return priceForShare;
+    }
+
+    public void updatePricesYMLfromHistory() {
+        for (String stock : pricesConfig.getConfigurationSection("Stocks").getKeys(false)) {
+
+            Double hourPrice = stockHistory.getStock1hPrice(stock);
+            Double dayPrice = stockHistory.getStock24hPrice(stock);
+            Double weekPrice = stockHistory.getStock7dPrice(stock);
+
+            pricesConfig.set("Stocks." + stock + ".1h", hourPrice);
+            pricesConfig.set("Stocks." + stock + ".24h", dayPrice);
+            pricesConfig.set("Stocks." + stock + ".7d", weekPrice);
+        }
     }
 }

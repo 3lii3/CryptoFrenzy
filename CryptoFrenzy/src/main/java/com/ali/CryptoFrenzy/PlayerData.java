@@ -1,13 +1,11 @@
 package com.ali.CryptoFrenzy;
 
 import java.util.logging.Logger;
-
 import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.List;
-
 import static org.bukkit.Bukkit.getLogger;
 
 public class PlayerData {
@@ -19,23 +17,19 @@ public class PlayerData {
     // Modify the constructor to accept the plugin as a parameter
     public PlayerData(Connection connection, CryptoFrenzy plugin) {
         this.connection = connection;
-        this.plugin = plugin; // Initialize the plugin field
+        this.plugin = plugin;
     }
 
     public void createTableIfNotExists() {
         try (Statement stmt = connection.createStatement()) {
-            // Create table if it doesn't exist
             String createTableQuery = "CREATE TABLE IF NOT EXISTS player_data ("
                     + "uuid TEXT PRIMARY KEY, "
                     + "name TEXT)";
             stmt.executeUpdate(createTableQuery);
 
-            // Get the available stock names from the configuration
             List<String> stocks = CryptoFrenzy.AvailableStocks();
 
-            // Add a column for each stock type
             for (String stock : stocks) {
-                // Check if the stock column already exists
                 ResultSet rs = stmt.executeQuery("PRAGMA table_info(player_data)");
                 boolean hasStockColumn = false;
                 while (rs.next()) {
@@ -81,7 +75,6 @@ public class PlayerData {
         }
     }
 
-
     public void addCoins(String uuid, String stock, int amount, String playerName) {
         if (!playerExists(uuid)) {
             addNewPlayer(uuid, playerName);  // Add the player if they don't exist
@@ -121,9 +114,6 @@ public class PlayerData {
         }
     }
 
-
-
-
     // Remove coins from the player's stock.
     public void removeCoins(String uuid, String stock, int amount) {
         String selectCoinsSQL = "SELECT " + stock + " FROM player_data WHERE uuid = ?";
@@ -156,7 +146,6 @@ public class PlayerData {
             logger.log(Level.SEVERE, "Error removing coins", e);
         }
     }
-
 
     // Fetch player's coin inventory.
     public Map<String, Integer> fetchPlayerCoins(String uuid) {

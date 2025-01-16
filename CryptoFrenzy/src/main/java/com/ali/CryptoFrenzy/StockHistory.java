@@ -1,11 +1,9 @@
 package com.ali.CryptoFrenzy;
 
 import java.util.logging.Logger;
-
 import java.sql.*;
 import java.util.logging.Level;
 import java.util.List;
-
 import static org.bukkit.Bukkit.getLogger;
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -13,18 +11,15 @@ import java.io.File;
 
 public class StockHistory {
 
-    private Connection connection;
-    private CryptoFrenzy plugin; // Add the plugin field
-    private static final Logger logger = Logger.getLogger(StockHistory.class.getName());
+    final private Connection connection;
+    final private CryptoFrenzy plugin;
 
-    // Modify the constructor to accept the plugin as a parameter
     public StockHistory(Connection connection, CryptoFrenzy plugin) {
         this.connection = connection;
         this.plugin = plugin;
     }
 
     public void updateAllStockHistory() {
-        // Load the Prices.yml file
         File pricesFile = new File(plugin.getDataFolder(), "Prices.yml");
         if (!pricesFile.exists()) {
             getLogger().warning("Prices.yml does not exist. Unable to update stock history.");
@@ -33,13 +28,10 @@ public class StockHistory {
 
         YamlConfiguration pricesConfig = YamlConfiguration.loadConfiguration(pricesFile);
 
-        // Get the current time rounded to the nearest half hour
         Timestamp roundedTimestamp = roundToNearestHalfHour(new Timestamp(System.currentTimeMillis()));
 
-        // Build the SQL query dynamically with stock columns and values
         StringBuilder query = new StringBuilder("INSERT INTO stock_history (recorded_at");
 
-        // Loop through all the stocks in Prices.yml
         for (String stockName : pricesConfig.getConfigurationSection("Stocks").getKeys(false)) {
             query.append(", ").append(stockName);
         }
@@ -51,13 +43,10 @@ public class StockHistory {
         query.append(")");
 
         try (PreparedStatement pstmt = connection.prepareStatement(query.toString())) {
-            // Set the recorded timestamp for all stocks
             pstmt.setTimestamp(1, roundedTimestamp);
 
-            // Set the stock prices dynamically
             int index = 2;
             for (String stockName : pricesConfig.getConfigurationSection("Stocks").getKeys(false)) {
-                // Fetch the latest price from Prices.yml
                 int latestPrice = pricesConfig.getInt("Stocks." + stockName + ".Price");
                 pstmt.setInt(index++, latestPrice);
             }
@@ -72,16 +61,14 @@ public class StockHistory {
 
     private Timestamp roundToNearestHalfHour(Timestamp timestamp) {
         long timeInMillis = timestamp.getTime();
-        long interval = 1000 * 60 * 30; // 30 minutes in milliseconds
+        long interval = 1000 * 60 * 30;
 
-        // Calculate the remainder when dividing by the interval
         long remainder = timeInMillis % interval;
 
-        // If remainder is greater than or equal to half of the interval, round up
         if (remainder >= interval / 2) {
-            timeInMillis += (interval - remainder);  // Round up to the next half-hour
+            timeInMillis += (interval - remainder);
         } else {
-            timeInMillis -= remainder;  // Round down to the previous half-hour
+            timeInMillis -= remainder;
         }
 
         return new Timestamp(timeInMillis);
@@ -91,9 +78,7 @@ public class StockHistory {
         List<String> stocks = CryptoFrenzy.AvailableStocks();
 
         try (Statement stmt = connection.createStatement()) {
-            // Loop through the available stocks
             for (String stock : stocks) {
-                // Check if the stock column already exists
                 ResultSet rs = stmt.executeQuery("PRAGMA table_info(stock_history)");
                 boolean hasStockColumn = false;
                 while (rs.next()) {
@@ -111,7 +96,6 @@ public class StockHistory {
                 }
             }
 
-            // Round the timestamp after checking for new stocks
             Timestamp roundedTimestamp = roundToNearestHalfHour(new Timestamp(System.currentTimeMillis()));
             System.out.println("Rounded timestamp for stock update: " + roundedTimestamp);
 
@@ -122,9 +106,9 @@ public class StockHistory {
 
     public void createTableIfNotExists() {
         try (Statement stmt = connection.createStatement()) {
-            // Create table if it doesn't exist
+            // Create table if it doesn't exist (for SQLite, using AUTOINCREMENT)
             String createTableQuery = "CREATE TABLE IF NOT EXISTS stock_history ("
-                    + "id INT PRIMARY KEY AUTO_INCREMENT, "
+                    + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
                     + "recorded_at DATETIME)";
             stmt.executeUpdate(createTableQuery);
 
@@ -200,7 +184,7 @@ public class StockHistory {
             pstmt.setTimestamp(1, thresholdTimestamp);
             int rowsAffected = pstmt.executeUpdate();
 
-            getLogger().info("Removed " + rowsAffected + " records older than 8 days.");
+            getLogger().info("Removed " + rowsAffected + " records older than 14 days.");
         } catch (SQLException e) {
             getLogger().log(Level.SEVERE, "Error removing old stock history", e);
         }

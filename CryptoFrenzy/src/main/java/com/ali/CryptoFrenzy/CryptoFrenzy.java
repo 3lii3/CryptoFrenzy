@@ -23,7 +23,10 @@ public class CryptoFrenzy extends JavaPlugin {
     private static Economy economy;
     private static StockHistory stockHistory;
     private static PlayerData playerData;
-    private static Connection connection;
+    private static PricingHandler pricingHandler;
+
+    private Connection playerDBConnection;
+    private Connection stockDBConnection;
 
     private File pricesFile;
     private FileConfiguration pricesConfig;
@@ -47,10 +50,12 @@ public class CryptoFrenzy extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        boolean generated = generatePricesFile();
-        while (generated) break;
         saveDefaultConfig();
-        loadPricesConfig();
+        if (!generatePricesFile()) {
+            getLogger().warning("Failed to generate Prices.yml.");
+        } else {
+            loadPricesConfig();
+        }
 
         this.getCommand("stocks").setExecutor(new StocksCommand(this));
         getCommand("stocks").setTabCompleter(new StocksTabCompleter(this));
@@ -65,21 +70,26 @@ public class CryptoFrenzy extends JavaPlugin {
             getLogger().warning("Vault not found! Please add Vault for plugin to work properly!");
         }
 
-        connectToPlayerDB(this);
-        connectToStockDB(this);
-        saveDefaultConfig();
+        connectToPlayerDB();
+        connectToStockDB();
+
+        pricingHandler = new PricingHandler(this);
+
         schedulePriceUpdate();
     }
 
     public void schedulePriceUpdate() {
-        // Run this task every 30 minutes
+        long delayInMinutes = getConfig().getLong("DatabaseUpdateFrequency");
+        long delayInSeconds = delayInMinutes * 60;
+
         new BukkitRunnable() {
             @Override
             public void run() {
                 stockHistory.updateAllStockHistory();
                 stockHistory.removeOldHistory();
+                pricingHandler.updatePricesYMLfromHistory();
             }
-        }.runTaskTimer(this, 0L, 300L * 20L);
+        }.runTaskTimer(this, 0L, delayInSeconds * 20L);
     }
 
 
@@ -96,40 +106,44 @@ public class CryptoFrenzy extends JavaPlugin {
         getStockHistory().CheckForNewCurrencies();
     }
 
-    private void connectToPlayerDB(CryptoFrenzy plugin) {
-        try {
-            String host = plugin.getConfig().getString("database.host");
-            int port = plugin.getConfig().getInt("database.port");
-            String username = plugin.getConfig().getString("database.user");
-            String password = plugin.getConfig().getString("database.password");
-            String url = "jdbc:mysql://" + host + ":" + port + "/" + "playerdata";
-            connection = DriverManager.getConnection(url, username, password);
+    private void connectToPlayerDB() {
+        getLogger().info("Trying to initiate a connection to the database.");
 
-            playerData = new PlayerData(connection, this);
+        try {
+            String url = "jdbc:sqlite:" + getDataFolder() + File.separator + "playerdata.db";
+
+            // SQLite does not require the database to be created separately
+            playerDBConnection = DriverManager.getConnection(url);
+
+            playerData = new PlayerData(playerDBConnection, this);
             getLogger().info("Database connection established.");
 
-            // Create table if it doesn't exist
             playerData.createTableIfNotExists();
+
         } catch (SQLException e) {
             e.printStackTrace();
             getLogger().warning("Failed to connect to the database.");
         }
     }
 
-    private void connectToStockDB(CryptoFrenzy plugin) {
-        try {
-            String host = plugin.getConfig().getString("database.host");
-            int port = plugin.getConfig().getInt("database.port");
-            String username = plugin.getConfig().getString("database.user");
-            String password = plugin.getConfig().getString("database.password");
-            String url = "jdbc:mysql://" + host + ":" + port + "/" + "stockhistory";
-            connection = DriverManager.getConnection(url, username, password);
+    public Connection getConnection() {
+        return this.stockDBConnection;
+    }
 
-            stockHistory = new StockHistory(connection, this);
+    private void connectToStockDB() {
+        getLogger().info("Trying to initiate a connection to the database.");
+
+        try {
+            String url = "jdbc:sqlite:" + getDataFolder() + File.separator + "stockhistory.db";
+
+            // SQLite does not require the database to be created separately
+            stockDBConnection = DriverManager.getConnection(url);
+
+            stockHistory = new StockHistory(stockDBConnection, this);
             getLogger().info("Database connection established.");
 
-            // Create table if it doesn't exist
             stockHistory.createTableIfNotExists();
+
         } catch (SQLException e) {
             e.printStackTrace();
             getLogger().warning("Failed to connect to the database.");
@@ -137,13 +151,23 @@ public class CryptoFrenzy extends JavaPlugin {
     }
 
     private void disconnectFromDatabase() {
-        if (connection != null) {
+        if (playerDBConnection != null) {
             try {
-                connection.close();
-                getLogger().info("Database connection closed.");
+                playerDBConnection.close();
+                getLogger().info("Player database connection closed.");
             } catch (SQLException e) {
                 e.printStackTrace();
-                getLogger().warning("Failed to close the database connection.");
+                getLogger().warning("Failed to close the player database connection.");
+            }
+        }
+
+        if (stockDBConnection != null) {
+            try {
+                stockDBConnection.close();
+                getLogger().info("Stock database connection closed.");
+            } catch (SQLException e) {
+                e.printStackTrace();
+                getLogger().warning("Failed to close the stock database connection.");
             }
         }
     }
@@ -206,11 +230,11 @@ public class CryptoFrenzy extends JavaPlugin {
 
                 // Set price and historical data under the stock name
                 pricesConfig.set(stockPath + ".Price", stockData.get("price"));
-                pricesConfig.set(stockPath + ".1h", 0);
-                pricesConfig.set(stockPath + ".24h", 0);
-                pricesConfig.set(stockPath + ".7d", 0);
+                pricesConfig.set(stockPath + ".1h", stockData.get("price"));
+                pricesConfig.set(stockPath + ".24h", stockData.get("price"));
+                pricesConfig.set(stockPath + ".7d", stockData.get("price"));
                 pricesConfig.set(stockPath + ".totalShares", stockData.get("market-shares"));
-                pricesConfig.set(stockPath + ".market-shares", 0);
+                pricesConfig.set(stockPath + ".market-shares", stockData.get("market-shares"));
             }
 
             // Save the Prices.yml file
