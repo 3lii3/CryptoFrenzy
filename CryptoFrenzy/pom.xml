@@ -3,19 +3,18 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.ali</groupId>    <!-- Change this to your package -->
-    <artifactId>CryptoFrenzy</artifactId>    <!-- Your plugin's name -->
+    <groupId>com.ali</groupId>
+    <artifactId>CryptoFrenzy</artifactId>
     <version>0.1.10</version>
     <description>Your ultimate minecraft stocks plugin.</description>
 
     <properties>
-        <java.version>21</java.version>    <!-- Change if you're using a higher Java version -->
+        <java.version>21</java.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
     </properties>
 
     <repositories>
-        <!-- SpigotMC Repository -->
         <repository>
             <id>spigotmc-repo</id>
             <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
@@ -25,10 +24,7 @@
             <url>https://jitpack.io</url>
         </repository>
     </repositories>
-
-    <!-- Dependency for Spigot API -->
     <dependencies>
-        <!-- Spigot API Dependency -->
         <dependency>
             <groupId>org.spigotmc</groupId>
             <artifactId>spigot-api</artifactId>
@@ -48,10 +44,8 @@
         </dependency>
     </dependencies>
 
-    <!-- Build configuration for the plugin -->
     <build>
         <plugins>
-            <!-- Maven compiler plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -70,7 +64,7 @@
                     <archive>
                         <manifest>
                             <addClasspath>true</addClasspath>
-                            <mainClass>com.ali.CryptoFrenzy.main</mainClass> <!-- Your main plugin class -->
+                            <mainClass>com.ali.CryptoFrenzy.CryptoFrenzy</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
