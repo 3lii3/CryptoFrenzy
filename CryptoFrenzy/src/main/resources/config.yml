@@ -1,4 +1,3 @@
-# CryptoFrenzy Plugin Configuration
 
 player:
   cooldown:
@@ -9,7 +8,7 @@ player:
     time: 5
 
 # How frequent should the database update in minutes (Price history only, Don't set below 30 for best performance.)
-DatabaseUpdateFrequency: 30
+DatabaseUpdateFrequency: 5
 ## The stock database is only used to fetch for history like price before 1hr, 24hrs, 7ds and not anything extra.
 
 
@@ -46,7 +45,7 @@ Stocks:
     #Starting price for one stock
     price: 100
     #Max shares owned by a single player
-    max-shares: 100000
+    max-shares: 10000
     #Shares circulating in the market
     market-shares: 6400000000
   AAPL:
@@ -55,7 +54,7 @@ Stocks:
     #Starting price for one stock
     price: 250
     #Max shares owned by a single player
-    max-shares: 100000
+    max-shares: 10000
     #Shares circulating in the market
     market-shares: 15100000000
   NVDA:
@@ -64,14 +63,6 @@ Stocks:
     #Starting price for one stock
     price: 150
     #Max shares owned by a single player
-    max-shares: 100000
+    max-shares: 10000
     #Shares circulating in the market
     market-shares: 24500000000
-
-
-#Database information, Doesn't need to be edited, Edit when needed.
-database:
-  host: localhost
-  port: 3306
-  user: CfzAdmin
-  password: CfzAdminPassword
