@@ -5,8 +5,8 @@
 
     <groupId>com.ali</groupId>    <!-- Change this to your package -->
     <artifactId>CryptoFrenzy</artifactId>    <!-- Your plugin's name -->
-    <version>1.0.0</version>
-    <description>A plugin to show basic server rules</description>
+    <version>0.1.10</version>
+    <description>Your ultimate minecraft stocks plugin.</description>
 
     <properties>
         <java.version>21</java.version>    <!-- Change if you're using a higher Java version -->
