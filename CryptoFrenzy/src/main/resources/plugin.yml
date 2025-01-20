@@ -1,5 +1,5 @@
 name: CryptoFrenzy
-version: 0.1.10
+version: 1.0.1
 main: com.ali.CryptoFrenzy.CryptoFrenzy
 api-version: 1.21
 depend: [Vault]
@@ -44,5 +44,8 @@ permissions:
     description: Allows reloading the plugin.
     default: op
   stocks.help:
+    description: Allows /stock help command.
+    default: op
+  stocks.help.admin:
     description: Allows /stock help command.
     default: op

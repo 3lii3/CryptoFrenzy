@@ -1,16 +1,15 @@
 package com.ali.CryptoFrenzy;
 
-import net.md_5.bungee.api.ChatColor;
 import net.milkbowl.vault.economy.Economy;
+
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Ambient;
 import org.bukkit.entity.Player;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.OfflinePlayer;
-import net.md_5.bungee.api.chat.TextComponent;
 
 import org.bukkit.Sound;
 
@@ -18,6 +17,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.HashMap;
 import java.util.UUID;
+import java.util.logging.Logger;
 
 public class StocksCommand implements CommandExecutor {
 
@@ -25,15 +25,14 @@ public class StocksCommand implements CommandExecutor {
     PricingHandler pricingHandler;
     private FileConfiguration pricesConfig;
     private StockHistory stockHistory;
-    private PlayerData playerData;
 
-    // To store the last command execution times for each player
     private Map<Player, Long> lastCommandTime = new HashMap<>();
 
-    public StocksCommand(CryptoFrenzy plugin) {
+    public StocksCommand(CryptoFrenzy plugin, StockHistory stockHistory) {
         this.plugin = plugin;
         this.pricingHandler = new PricingHandler(plugin);
         this.pricesConfig = plugin.getPricesConfig();
+        this.stockHistory = stockHistory;
     }
 
     @Override
@@ -80,7 +79,6 @@ public class StocksCommand implements CommandExecutor {
     }
 
     private boolean handleStocksCommand(Player player, String[] args) {
-        // This is where your current stocks command logic goes.
         if (args.length == 0) {
             player.sendMessage(ChatColor.RED + "Unknown subcommand. Type " + ChatColor.YELLOW + "/stocks help" + ChatColor.RED + " for available commands.");
             player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
@@ -103,25 +101,26 @@ public class StocksCommand implements CommandExecutor {
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                     return false;
                 }
-                if (!pricesConfig.contains("Stocks." + args[1].toUpperCase())) {
-                    player.sendMessage(ChatColor.RED + "The stock " + args[1].toUpperCase() + " does not exist.");
-                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
-                    break;
-                }
                 if (args.length < 3) {
                     player.sendMessage(ChatColor.RED + "Wrong command usage! Usage: " + ChatColor.YELLOW + "/stocks buy <Stock> <Amount>");
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                     return false;
                 }
+                if (!pricesConfig.contains("Stocks." + args[1].toUpperCase())) {
+                    player.sendMessage(ChatColor.RED + "The stock " + args[1].toUpperCase() + " does not exist.");
+                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+                    break;
+                }
 
                 try {
                     int amount = Integer.parseInt(args[2]);
-                    buyStock(player, args[1], amount);
+                    buyStock(player, args[1].toUpperCase(), amount);
                 } catch (NumberFormatException e) {
                     player.sendMessage(ChatColor.RED + "Invalid amount! Please enter a valid number.");
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                     return false;
                 }
+                break;
 
             case "sell":
                 if (!player.hasPermission("stocks.sell")) {
@@ -129,15 +128,15 @@ public class StocksCommand implements CommandExecutor {
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                     return false;
                 }
-                if (!pricesConfig.contains("Stocks." + args[1].toUpperCase())) {
-                    player.sendMessage(ChatColor.RED + "The stock " + args[1].toUpperCase() + " does not exist.");
-                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
-                    break;
-                }
                 if (args.length < 3) {
                     player.sendMessage(ChatColor.RED + "Wrong command usage! Usage: " + ChatColor.YELLOW + "/stocks sell <Stock> <Amount>");
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                     return false;
+                }
+                if (!pricesConfig.contains("Stocks." + args[1].toUpperCase())) {
+                    player.sendMessage(ChatColor.RED + "The stock " + args[1].toUpperCase() + " does not exist.");
+                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+                    break;
                 }
                 sellStock(player, args[1].toUpperCase(), Integer.parseInt(args[2]));
                 break;
@@ -148,22 +147,23 @@ public class StocksCommand implements CommandExecutor {
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                     return false;
                 }
-                if (!pricesConfig.contains("Stocks." + args[2].toUpperCase())) {
-                    player.sendMessage(ChatColor.RED + "The stock " + args[1].toUpperCase() + " does not exist.");
-                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
-                    break;
-                }
                 if (args.length < 4) {
                     player.sendMessage(ChatColor.RED + "Wrong command usage! Usage: " + ChatColor.YELLOW + "/stocks remove <Player> <Stock> <Amount>");
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                     return false;
                 }
-                if (!playerData.playerExists(UUID.fromString(args[1]).toString())) {
-                    player.sendMessage(ChatColor.RED+"This player does not exist.");
+                if (!pricesConfig.contains("Stocks." + args[2].toUpperCase())) {
+                    player.sendMessage(ChatColor.RED + "The stock " + args[1].toUpperCase() + " does not exist.");
+                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+                    break;
+                }
+                if (!Bukkit.getOfflinePlayer(args[1].toString()).hasPlayedBefore()) {
+                    player.sendMessage(ChatColor.RED+"This player has never played before.");
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                     return false;
                 }
-                removeStockFromPlayer(Bukkit.getOfflinePlayer(args[1].toString()), args[2],Integer.parseInt(args[3]), player);
+
+                removeStockFromPlayer(Bukkit.getOfflinePlayer(args[1].toString()), args[2].toUpperCase(),Integer.parseInt(args[3]), player);
                 break;
 
             case "add":
@@ -172,23 +172,23 @@ public class StocksCommand implements CommandExecutor {
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                     return false;
                 }
-                if (!pricesConfig.contains("Stocks." + args[2].toUpperCase())) {
-                    player.sendMessage(ChatColor.RED + "The stock " + args[1].toUpperCase() + " does not exist.");
-                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
-                    break;
-                }
                 if (args.length < 4) {
                     player.sendMessage(ChatColor.RED + "Wrong command usage! Usage: " + ChatColor.YELLOW + "/stocks add <Player> <Stock> <Amount>");
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                     return false;
                 }
-                if (!playerData.playerExists(UUID.fromString(args[1]).toString())) {
-                    player.sendMessage(ChatColor.RED+"This player does not exist.");
+                if (!pricesConfig.contains("Stocks." + args[2].toUpperCase())) {
+                    player.sendMessage(ChatColor.RED + "The stock " + args[1].toUpperCase() + " does not exist.");
+                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+                    break;
+                }
+                if (!Bukkit.getOfflinePlayer(args[1].toString()).hasPlayedBefore()) {
+                    player.sendMessage(ChatColor.RED+"This player has never played before.");
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                     return false;
                 }
 
-                addStockToPlayer(Bukkit.getOfflinePlayer(args[1].toString()), args[2],Integer.parseInt(args[3]), player);
+                addStockToPlayer(Bukkit.getOfflinePlayer(args[1].toString()), args[2].toUpperCase(),Integer.parseInt(args[3]), player);
                 break;
 
             case "send":
@@ -197,18 +197,18 @@ public class StocksCommand implements CommandExecutor {
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                     return false;
                 }
-                if (!pricesConfig.contains("Stocks." + args[2].toUpperCase())) {
-                    player.sendMessage(ChatColor.RED + "The stock " + args[1].toUpperCase() + " does not exist.");
-                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
-                    break;
-                }
                 if (args.length < 4) {
                     player.sendMessage(ChatColor.RED + "Wrong command usage! Usage: " + ChatColor.YELLOW + "/stocks send <Player> <Stock> <Amount>");
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                     return false;
                 }
-                if (!playerData.playerExists(UUID.fromString(args[1]).toString())) {
-                    player.sendMessage(ChatColor.RED+"This player does not exist.");
+                if (!pricesConfig.contains("Stocks." + args[2].toUpperCase())) {
+                    player.sendMessage(ChatColor.RED + "The stock " + args[1].toUpperCase() + " does not exist.");
+                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+                    break;
+                }
+                if (!Bukkit.getOfflinePlayer(args[1].toString()).hasPlayedBefore()) {
+                    player.sendMessage(ChatColor.RED+"This player has never played before.");
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                     return false;
                 }
@@ -222,15 +222,15 @@ public class StocksCommand implements CommandExecutor {
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                     return false;
                 }
+                if (args.length < 2) {
+                    player.sendMessage(ChatColor.RED + "Wrong command usage! Usage: " + ChatColor.YELLOW + "/stocks fetch <Player> <Stock> <Amount>");
+                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+                    return false;
+                }
                 if (!pricesConfig.contains("Stocks." + args[1].toUpperCase())) {
                     player.sendMessage(ChatColor.RED + "The stock " + args[1].toUpperCase() + " does not exist.");
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                     break;
-                }
-                if (args.length < 2) {
-                    player.sendMessage(ChatColor.RED + "Wrong command usage! Usage: " + ChatColor.YELLOW + "/stocks fetch <Stock>");
-                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
-                    return false;
                 }
                 fetchStockDetails(player, args[1].toUpperCase());
                 break;
@@ -249,9 +249,8 @@ public class StocksCommand implements CommandExecutor {
                         player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                         return false;
                     }
-                    OfflinePlayer searchPlayer = Bukkit.getOfflinePlayer(args[1].toString());
-                    if (searchPlayer.hasPlayedBefore()) {
-                        showPortfolio(searchPlayer, player);
+                    if (Bukkit.getOfflinePlayer(args[1].toString()).hasPlayedBefore()) {
+                        showPortfolio(Bukkit.getOfflinePlayer(args[1].toString()), player);
                     } else {
                         player.sendMessage(ChatColor.RED + "That player has never played on this server.");
                         player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
@@ -264,7 +263,6 @@ public class StocksCommand implements CommandExecutor {
                     player.sendMessage(ChatColor.RED + "You do not have permission to use this command.");
                     return false;
                 }
-                plugin.reloadPricesConfig();
                 plugin.reloadConfig();
                 pricingHandler.Reload();
                 stockHistory.CheckForNewCurrencies();
@@ -277,7 +275,13 @@ public class StocksCommand implements CommandExecutor {
                     player.sendMessage(ChatColor.RED + "You do not have permission to use this command.");
                     return false;
                 }
-                HelpMessage(player);
+                if (player.hasPermission("stocks.help.admin")) {
+                    player.sendMessage(ChatColor.AQUA + "You are viewing Admin's help menu.");
+                    HelpMessage(player, true);
+                    return false;
+                } else {
+                    HelpMessage(player, false);
+                }
                 break;
 
             default:
@@ -288,10 +292,15 @@ public class StocksCommand implements CommandExecutor {
         return true;
     }
 
-    private boolean sendToPlayer(String player, String stock, Integer amount, Player sender) {
+    private void sendToPlayer(String player, String stock, Integer amount, Player sender) {
         PlayerData playerData = CryptoFrenzy.getPlayerData();
 
         Map<String, Integer> coins = playerData.fetchPlayerCoins(sender.getUniqueId().toString());
+        if (coins.isEmpty()) {
+            sender.sendMessage(ChatColor.RED+"You don't own any share yet.");
+            sender.playSound(sender.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+            return;
+        }
         for (Map.Entry<String, Integer> entry : coins.entrySet()) {
             String stockName = entry.getKey();
             int CoinAmount = entry.getValue();
@@ -302,7 +311,7 @@ public class StocksCommand implements CommandExecutor {
                     sender.sendMessage(ChatColor.GREEN + "Successfully sent "+amount+" share(s) of stock"+stock+" to "+player+" !");
                     sender.playSound(sender.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
 
-                    String playerUUID = String.valueOf(UUID.fromString(player));
+                    String playerUUID = Bukkit.getOfflinePlayer(player).getUniqueId().toString();
 
                     CryptoFrenzy.getPlayerData().addCoins(playerUUID, stock, amount, player);
                 } else {
@@ -311,49 +320,38 @@ public class StocksCommand implements CommandExecutor {
                 }
             }
         }
-
-        return true;
     }
 
-    private boolean removeStockFromPlayer(OfflinePlayer player, String stock, Integer amount, Player sender) {
+    private void removeStockFromPlayer(OfflinePlayer player, String stock, Integer amount, Player sender) {
         PlayerData playerData = CryptoFrenzy.getPlayerData();
 
-        if (!playerData.playerExists(player.getUniqueId().toString())) {
-            sender.sendMessage(ChatColor.RED+"This player does not exist.");
-            sender.playSound(sender.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
-            return false;
+        if (!playerData.removeCoins(player.getUniqueId().toString(), stock, amount)) {
+            sender.sendMessage(ChatColor.RED+"Error removing stock from player: Player does not own that amount of stocks.");
+            return;
         }
 
-        playerData.removeCoins(player.getUniqueId().toString(), stock, amount);
-
-        sender.sendMessage(ChatColor.GREEN + "Successfully removed "+amount+" share(s) of "+stock+" from "+player+" !");
+        sender.sendMessage(ChatColor.GREEN + "Successfully removed "+amount+" share(s) of "+stock+" from "+player.getName()+" !");
+        pricingHandler.adjustPriceBasedOnSupplyDemand(stock, amount, false);
         sender.playSound(sender.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
-        return true;
     }
 
-    private boolean addStockToPlayer(OfflinePlayer player, String stock, Integer amount, Player sender) {
+    private void addStockToPlayer(OfflinePlayer player, String stock, Integer amount, Player sender) {
         PlayerData playerData = CryptoFrenzy.getPlayerData();
 
-        if (!playerData.playerExists(player.getUniqueId().toString())) {
-            sender.sendMessage(ChatColor.RED+"This player does not exist.");
-            sender.playSound(sender.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
-            return false;
-        }
-
-        playerData.removeCoins(player.getUniqueId().toString(), stock, amount);
-        sender.sendMessage(ChatColor.GREEN + "Successfully added "+amount+" share(s) of "+stock+" to "+player+" !");
+        playerData.addCoins(player.getUniqueId().toString(), stock, amount, player.getName());
+        sender.sendMessage(ChatColor.GREEN + "Successfully added "+amount+" share(s) of "+stock+" to "+player.getName()+" !");
+        pricingHandler.adjustPriceBasedOnSupplyDemand(stock, amount, true);
         sender.playSound(sender.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
-        return true;
     }
 
     private boolean handleCryptoFrenzyCommand(Player player) {
-        StringBuilder message = new StringBuilder();
-        message.append(ChatColor.GOLD).append("===== ").append(ChatColor.YELLOW).append("CryptoFrenzy Plugin").append(ChatColor.GOLD).append(" =====\n");
-        message.append(ChatColor.WHITE).append("Hello user! This plugin was created by 3lii3! You can find this plugin in the following links: \n");
-        message.append(ChatColor.WHITE+"Discord: "+ChatColor.ITALIC+ChatColor.UNDERLINE+ChatColor.BLUE+"https://discord.gg/wjcNcY5UDr \n");
-        message.append(ChatColor.WHITE+"SpigotMC: "+ChatColor.ITALIC+ChatColor.UNDERLINE+ChatColor.BLUE+"https://spigotmc.org/resources/*coming soon* \n");
-        message.append(ChatColor.GOLD).append("==============================\n");
-        player.sendMessage(message.toString());
+        String message = ChatColor.GOLD + "===== " + ChatColor.YELLOW + "CryptoFrenzy Plugin" + ChatColor.GOLD + " ======\n" +
+                         ChatColor.WHITE + "Hello user! This plugin was created by 3lii3! You can find this plugin in the following links: \n" +
+                         ChatColor.WHITE + "Discord: " + ChatColor.BLUE + ChatColor.ITALIC + ChatColor.UNDERLINE + "https://discord.gg/wjcNcY5UDr \n" +
+                         ChatColor.WHITE + "SpigotMC: " + ChatColor.BLUE + ChatColor.ITALIC + ChatColor.UNDERLINE + "https://spigotmc.org/resources/*coming soon* \n" +
+                         ChatColor.WHITE + "GitHub: " + ChatColor.BLUE + ChatColor.ITALIC + ChatColor.UNDERLINE + "https://github.com/3lii3/CryptoFrenzy\n" +
+                         ChatColor.GOLD + "==============================\n";
+        player.sendMessage(message);
         return true;
     }
 
@@ -362,7 +360,8 @@ public class StocksCommand implements CommandExecutor {
         String[] stocks = pricesConfig.getConfigurationSection("Stocks").getKeys(false).toArray(new String[0]);
 
         StringBuilder message = new StringBuilder();
-        message.append(ChatColor.DARK_GRAY).append("===== ").append(ChatColor.YELLOW).append("STOCK MARKET").append(ChatColor.DARK_GRAY).append(" =====\n");
+        message.append(ChatColor.GOLD).append("===== ").append(ChatColor.YELLOW).append("STOCK MARKET").append(ChatColor.GOLD).append(" =====\n");
+        plugin.reloadPricesConfig();
 
         for (String stock : stocks) {
             int price = pricesConfig.getInt("Stocks." + stock + ".Price");
@@ -370,14 +369,14 @@ public class StocksCommand implements CommandExecutor {
             int dailyChange = pricingHandler.getPriceChange(stock, "24h");
             int weeklyChange = pricingHandler.getPriceChange(stock, "7d");
 
-            message.append(ChatColor.GRAY).append(stock)
-                    .append(" ").append(ChatColor.BLUE).append(price).append("$")
+            message.append(ChatColor.YELLOW).append(stock)
+                    .append(" ").append(ChatColor.GOLD).append(price).append("$")
                     .append(" ").append(getChangeColor(hourlyChange)).append(hourlyChange).append("%")
                     .append(" ").append(getChangeColor(dailyChange)).append(dailyChange).append("%")
                     .append(" ").append(getChangeColor(weeklyChange)).append(weeklyChange).append("%\n");
         }
 
-        message.append(ChatColor.DARK_GRAY).append("========================");
+        message.append(ChatColor.GOLD).append("========================");
         player.sendMessage(message.toString());
     }
 
@@ -385,47 +384,56 @@ public class StocksCommand implements CommandExecutor {
         PlayerData playerData = CryptoFrenzy.getPlayerData();
         Economy economy = CryptoFrenzy.getEconomy();
 
+        // Calculation logic:
         int fee = plugin.getConfig().getInt("economy.market-fee");
+        double tax = 1 + (plugin.getConfig().getDouble("economy.tax-rate") / 100);
+        double basePrice = pricingHandler.calculatePriceForEachShare(stock.toUpperCase(), amount, true);
+        double totalPrice = ((basePrice * tax )* amount) + fee;
 
-        double Price =  pricingHandler.calculatePriceForEachShare(stock, amount, true) + fee;
+        int maxAmount = plugin.getConfig().getInt("Stocks." + stock.toUpperCase() + ".max-shares");
 
-        int maxAmount = plugin.getConfig().getInt("Stocks."+stock.toUpperCase() +".max-shares");
-
+        getLogger().info(player.getName() + " is trying to purchase " + amount + " shares of " + stock);
         Map<String, Integer> coins = playerData.fetchPlayerCoins(player.getUniqueId().toString());
-        for (Map.Entry<String, Integer> entry : coins.entrySet()) { String stockName = entry.getKey(); int CoinAmount = entry.getValue();
-            if (Objects.equals(stockName, stock)) {
-                if ( CoinAmount >= maxAmount) {
-                    player.sendMessage(ChatColor.RED+"You can't have more than "+ChatColor.YELLOW+maxAmount+ChatColor.RED+" shares of "+ChatColor.YELLOW+stock+ChatColor.RED+", You currently have: "+ChatColor.YELLOW+CoinAmount);
-                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
-                } else {
-                    if (economy.has(player, Price)) {
-                        economy.withdrawPlayer(player, Price);
-                        player.sendMessage(ChatColor.GREEN+"Successfully bought " + amount + " shares of " + stock + " for " + Price + "$.");
-                        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
-                        pricingHandler.adjustPriceBasedOnSupplyDemand(stock, amount, true);
-                        CryptoFrenzy.getPlayerData().addCoins(player.getUniqueId().toString(), stock ,amount, player.getName());
-                    } else {
 
-                        double AmountNeeded = Price - economy.getBalance(player);
-                        player.sendMessage(ChatColor.RED+"You need "+ChatColor.YELLOW+AmountNeeded+ChatColor.RED+" more to buy this amount of stocks!");
+        if (!coins.isEmpty()) {
+            for (Map.Entry<String, Integer> entry : coins.entrySet()) {
+                String stockName = entry.getKey();
+                int CoinAmount = entry.getValue();
+                if (Objects.equals(stockName, stock)) {
+                    if (CoinAmount >= maxAmount) {
+                        getLogger().info(player.getName() + " tries to buy large amount of stocks");
+                        player.sendMessage(ChatColor.RED + "You can't have more than " + ChatColor.YELLOW + maxAmount + ChatColor.RED + " shares of " + ChatColor.YELLOW + stock + ChatColor.RED + ", You currently have: " + ChatColor.YELLOW + CoinAmount);
                         player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+                    } else {
+                        if (economy.has(player, totalPrice)) {
+                            economy.withdrawPlayer(player, totalPrice);
+                            getLogger().info(player.getName() + " bought "+amount+" shares of "+stock+" for "+totalPrice);
+                            player.sendMessage(ChatColor.GREEN + "Successfully bought " + amount + " shares of " + stock + " for " + totalPrice + "$.");
+                            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+                            pricingHandler.adjustPriceBasedOnSupplyDemand(stock, amount, true);
+
+                            CryptoFrenzy.getPlayerData().addCoins(player.getUniqueId().toString(), stock, amount, player.getName());
+                        } else {
+                            getLogger().info(player.getName() + " lacking funds to buy stock.");
+                            double AmountNeeded = totalPrice - economy.getBalance(player);
+                            player.sendMessage(ChatColor.RED + "You need " + ChatColor.YELLOW + AmountNeeded + ChatColor.RED + " more to buy this amount of stocks!");
+                            player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+                        }
                     }
                 }
-            } else if (amount <= maxAmount){
-                if (economy.has(player, Price)) {
-                    economy.withdrawPlayer(player, Price);
-                    player.sendMessage(ChatColor.GREEN+"Successfully bought " + amount + " shares of " + stock + " for " + Price + "$.");
-                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
-                    pricingHandler.adjustPriceBasedOnSupplyDemand(stock, amount, true);
-                    CryptoFrenzy.getPlayerData().addCoins(player.getUniqueId().toString(), stock ,amount, player.getName());
-                } else {
-
-                    double AmountNeeded = Price - economy.getBalance(player);
-                    player.sendMessage(ChatColor.RED+"You need "+ChatColor.YELLOW+AmountNeeded+ChatColor.RED+" more to buy this amount of stocks!");
-                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
-                }
+            }
+        } else {
+            if (economy.has(player, totalPrice)) {
+                economy.withdrawPlayer(player, totalPrice);
+                getLogger().info(player.getName() + " bought "+amount+" shares of "+stock+" for "+totalPrice);
+                player.sendMessage(ChatColor.GREEN + "Successfully bought " + amount + " shares of " + stock + " for " + totalPrice + "$.");
+                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+                pricingHandler.adjustPriceBasedOnSupplyDemand(stock, amount, true);
+                CryptoFrenzy.getPlayerData().addCoins(player.getUniqueId().toString(), stock, amount, player.getName());
             } else {
-                player.sendMessage(ChatColor.RED+"You can't have more than "+ChatColor.YELLOW+maxAmount+ChatColor.RED+" shares of "+ChatColor.YELLOW+stock);
+                getLogger().info(player.getName() + " lacking funds to buy stock.");
+                double AmountNeeded = totalPrice - economy.getBalance(player);
+                player.sendMessage(ChatColor.RED + "You need " + ChatColor.YELLOW + AmountNeeded + ChatColor.RED + " more to buy this amount of stocks!");
                 player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
             }
         }
@@ -433,32 +441,42 @@ public class StocksCommand implements CommandExecutor {
 
     private void sellStock(Player player, String stock, int amount) {
         PlayerData playerData = CryptoFrenzy.getPlayerData();
+        Economy economy = CryptoFrenzy.getEconomy();
 
         Map<String, Integer> coins = playerData.fetchPlayerCoins(player.getUniqueId().toString());
+        if (coins.isEmpty()) {
+            player.sendMessage(ChatColor.RED + "You do not own any share of any stock!");
+            player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+            return;
+        }
+
         for (Map.Entry<String, Integer> entry : coins.entrySet()) {
             String stockName = entry.getKey();
             int CoinAmount = entry.getValue();
-            Economy economy = CryptoFrenzy.getEconomy();
 
             if (Objects.equals(stockName, stock)) {
-                if ( CoinAmount >= amount) {
-                    CryptoFrenzy.getPlayerData().removeCoins(player.getUniqueId().toString(), stock ,amount);
+                if (CoinAmount >= amount) {
+                    CryptoFrenzy.getPlayerData().removeCoins(player.getUniqueId().toString(), stock, amount);
 
-                    double totalAmountReceived = pricingHandler.calculatePriceForEachShare(stock, amount, false);
-                    economy.depositPlayer(player, totalAmountReceived);
+                    int fee = plugin.getConfig().getInt("economy.market-fee");
+                    double taxRate = 1 - (plugin.getConfig().getDouble("economy.tax-rate") / 100);
+                    double basePrice = pricingHandler.calculatePriceForEachShare(stock.toUpperCase(), amount, false);
+                    double totalPrice = ((basePrice * taxRate)* amount) - fee;
+
+                    economy.depositPlayer(player, totalPrice);
 
                     pricingHandler.adjustPriceBasedOnSupplyDemand(stock, amount, false);
 
-                    player.sendMessage(ChatColor.GREEN + "Successfully sold " + amount + " " + stock + " stock for " + totalAmountReceived + "$!");
+                    getLogger().info(player.getName() + " sold "+amount+" shares of "+stock+" for "+totalPrice);
+                    player.sendMessage(ChatColor.GREEN + "Successfully sold " + amount + " shares of " + stock + " for " + totalPrice + "$ after tax.");
                     player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
                 } else {
-                    player.sendMessage(ChatColor.RED+"You don't have enough shares of "+ChatColor.YELLOW+stockName+ChatColor.RED+", You currently have: "+ChatColor.YELLOW+CoinAmount);
+                    player.sendMessage(ChatColor.RED + "You don't have enough shares of " + ChatColor.YELLOW + stockName + ChatColor.RED + ", You currently have: " + ChatColor.YELLOW + CoinAmount);
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                 }
             }
         }
     }
-
 
     private void fetchStockDetails(Player player, String stock) {
         FileConfiguration pricesConfig = plugin.getPricesConfig();
@@ -478,19 +496,18 @@ public class StocksCommand implements CommandExecutor {
         String Description = config.getString("Stocks."+stock.toUpperCase() +".description");
         String StockName = config.getString("Stocks."+stock.toUpperCase() +".currency-name");
 
-        StringBuilder message = new StringBuilder();
-        message.append(ChatColor.DARK_GRAY).append("===== ").append(ChatColor.AQUA).append(StockName).append(" (").append(stock.toUpperCase())
-                .append(ChatColor.DARK_GRAY).append(") =====\n")
-                .append(ChatColor.YELLOW).append("Description: ").append(ChatColor.WHITE).append(Description)
-                .append(ChatColor.YELLOW).append("\nStock Market-Cap:").append(ChatColor.WHITE).append(marketCap)
-                .append(ChatColor.YELLOW).append("\nStock Market Shares:").append(ChatColor.WHITE).append(marketShares)
-                .append(ChatColor.GRAY).append("\nPrice: ").append(ChatColor.BLUE).append(price).append("$ ")
-                .append(ChatColor.GRAY).append("1h: ").append(getChangeColor(hourlyChange)).append(hourlyChange).append("% ")
-                .append(ChatColor.GRAY).append("24h: ").append(getChangeColor(dailyChange)).append(dailyChange).append("% ")
-                .append(ChatColor.GRAY).append("7d: ").append(getChangeColor(weeklyChange)).append(weeklyChange).append("% ");
-        message.append(ChatColor.DARK_GRAY).append("\n========================");
+        String message = ChatColor.GOLD + "===== " + ChatColor.YELLOW + StockName + " (" + stock.toUpperCase() + ")" +
+                        ChatColor.GOLD + " =====\n" +
+                        ChatColor.YELLOW + "Description: " + ChatColor.WHITE + Description +
+                        ChatColor.YELLOW + "\nStock Market-Cap: " + ChatColor.WHITE + marketCap +
+                        ChatColor.YELLOW + "\nStock Market Shares: " + ChatColor.WHITE + marketShares +
+                        ChatColor.WHITE + "\nPrice: " + ChatColor.YELLOW + price + "$ " +
+                        ChatColor.WHITE + "1h: " + getChangeColor(hourlyChange) + hourlyChange + "% " +
+                        ChatColor.WHITE + "24h: " + getChangeColor(dailyChange) + dailyChange + "% " +
+                        ChatColor.WHITE + "7d: " + getChangeColor(weeklyChange) + weeklyChange + "% " +
+                        ChatColor.GOLD + "\n========================";
 
-        player.sendMessage(message.toString());
+        player.sendMessage(message);
     }
 
     private ChatColor getChangeColor(int change) {
@@ -503,42 +520,53 @@ public class StocksCommand implements CommandExecutor {
         }
     }
 
-    private void HelpMessage(Player player) {
+    private void HelpMessage(Player player, boolean isAdmin) {
         StringBuilder message = new StringBuilder();
-        message.append(ChatColor.DARK_GRAY).append("===== ").append(ChatColor.AQUA).append("Help menu").append(ChatColor.DARK_GRAY).append(" =====\n");
-        message.append(ChatColor.DARK_GRAY).append("- ").append(ChatColor.YELLOW).append("/stocks help ").append(ChatColor.GREEN).append("Shows this menu.\n");
-        message.append(ChatColor.DARK_GRAY).append("- ").append(ChatColor.YELLOW).append("/stocks buy <Stock> <Amount> ").append(ChatColor.GREEN).append("Buys specific amount of stocks.\n");
-        message.append(ChatColor.DARK_GRAY).append("- ").append(ChatColor.YELLOW).append("/stocks sell <Stock> <Amount> ").append(ChatColor.GREEN).append("Sells specific amount of stocks.\n");
-        message.append(ChatColor.DARK_GRAY).append("- ").append(ChatColor.YELLOW).append("/stocks fetch <Stock> ").append(ChatColor.GREEN).append("Fetches information about specific stock.\n");
-        message.append(ChatColor.DARK_GRAY).append("- ").append(ChatColor.YELLOW).append("/stocks list <Stock> ").append(ChatColor.GREEN).append("Lists available stocks & their information.\n");
-        message.append(ChatColor.DARK_GRAY).append("- ").append(ChatColor.YELLOW).append("/stocks portfolio ").append(ChatColor.GREEN).append("Shows your shares in stocks.\n");
-        message.append(ChatColor.DARK_GRAY).append("========================");
+        if (!isAdmin) {
+            message.append(ChatColor.GOLD).append("===== ").append(ChatColor.YELLOW).append("Help menu").append(ChatColor.GOLD).append(" =====\n");
+            message.append(ChatColor.WHITE).append("- ").append(ChatColor.YELLOW).append("/stocks help ").append(ChatColor.WHITE).append("Shows this menu.\n");
+            message.append(ChatColor.WHITE).append("- ").append(ChatColor.YELLOW).append("/stocks buy <Stock> <Amount> ").append(ChatColor.WHITE).append("Buys specific amount of stocks.\n");
+            message.append(ChatColor.WHITE).append("- ").append(ChatColor.YELLOW).append("/stocks sell <Stock> <Amount> ").append(ChatColor.WHITE).append("Sells specific amount of stocks.\n");
+            message.append(ChatColor.WHITE).append("- ").append(ChatColor.YELLOW).append("/stocks fetch <Stock> ").append(ChatColor.WHITE).append("Fetches information about specific stock.\n");
+            message.append(ChatColor.WHITE).append("- ").append(ChatColor.YELLOW).append("/stocks list ").append(ChatColor.WHITE).append("Lists available stocks.\n");
+            message.append(ChatColor.WHITE).append("- ").append(ChatColor.YELLOW).append("/stocks portfolio (player) ").append(ChatColor.WHITE).append("Shows player's portfolio\n");
+            message.append(ChatColor.WHITE).append("- ").append(ChatColor.YELLOW).append("/stocks send <Player> <Stock> <Amount> ").append(ChatColor.WHITE).append("Sends stocks to another player/\n");
+            message.append(ChatColor.GOLD).append("========================");
 
-        player.sendMessage(message.toString());
+            player.sendMessage(message.toString());
+        } else {
+            message.append(ChatColor.GOLD).append("===== ").append(ChatColor.YELLOW).append("Admin Help menu").append(ChatColor.GOLD).append(" =====\n");
+            message.append(ChatColor.WHITE).append("- ").append(ChatColor.YELLOW).append("/stocks help ").append(ChatColor.WHITE).append("Shows this menu.\n");
+            message.append(ChatColor.WHITE).append("- ").append(ChatColor.YELLOW).append("/stocks buy <Stock> <Amount> ").append(ChatColor.WHITE).append("Buys specific amount of stocks.\n");
+            message.append(ChatColor.WHITE).append("- ").append(ChatColor.YELLOW).append("/stocks sell <Stock> <Amount> ").append(ChatColor.WHITE).append("Sells specific amount of stocks.\n");
+            message.append(ChatColor.WHITE).append("- ").append(ChatColor.YELLOW).append("/stocks fetch <Stock> ").append(ChatColor.WHITE).append("Fetches information about specific stock.\n");
+            message.append(ChatColor.WHITE).append("- ").append(ChatColor.YELLOW).append("/stocks list ").append(ChatColor.WHITE).append("Lists available stocks.\n");
+            message.append(ChatColor.WHITE).append("- ").append(ChatColor.YELLOW).append("/stocks portfolio (player) ").append(ChatColor.WHITE).append("Shows player's portfolio\n");
+            message.append(ChatColor.WHITE).append("- ").append(ChatColor.YELLOW).append("/stocks send <Player> <Stock> <Amount> ").append(ChatColor.WHITE).append("Sends stocks to another player/\n");
+            message.append(ChatColor.WHITE).append("- ").append(ChatColor.YELLOW).append("/stocks add <Player> <Stock> <Amount> ").append(ChatColor.WHITE).append("Adds shares to a player\n");
+            message.append(ChatColor.WHITE).append("- ").append(ChatColor.YELLOW).append("/stocks remove <Player> <Stock> <Amount> ").append(ChatColor.WHITE).append("Removes shares from a player\n");
+            message.append(ChatColor.WHITE).append("- ").append(ChatColor.YELLOW).append("/stocks reload ").append(ChatColor.RED).append("Dangerous command").append(ChatColor.WHITE).append(" Reloads all configurations\n");
+            message.append(ChatColor.GOLD).append("========================");
+
+            player.sendMessage(message.toString());
+        }
     }
 
-    private boolean showPortfolio(OfflinePlayer player, Player sender) {
-        // Get PlayerData instance
+    private void showPortfolio(OfflinePlayer player, Player sender) {
+        plugin.reloadPricesConfig();
         PlayerData playerData = CryptoFrenzy.getPlayerData();
 
-        if (!playerData.playerExists(player.getUniqueId().toString())) {
-            sender.sendMessage(ChatColor.RED+"This player does not exist.");
-            sender.playSound(sender.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
-            return false;
-        }
-        // Fetch the player's coin data using their UUID
         Map<String, Integer> coins = playerData.fetchPlayerCoins(player.getUniqueId().toString());
 
-        // Build the message to display to the player
         StringBuilder message = new StringBuilder();
-        message.append(ChatColor.DARK_GRAY).append("===== ").append(ChatColor.AQUA).append(player.getName()).append("'s Portfolio").append(ChatColor.DARK_GRAY).append(" =====\n");
+        message.append(ChatColor.GOLD).append("===== ").append(ChatColor.YELLOW).append(player.getName()).append("'s Portfolio").append(ChatColor.GOLD).append(" =====\n");
 
         // Check if the player has any coins in their portfolio
-        int totalCoins = coins.values().stream().mapToInt(Integer::intValue).sum(); // Sum up all the coin amounts
+        int totalCoins = coins.values().stream().mapToInt(Integer::intValue).sum();
         if (totalCoins == 0) {
-            message.append(ChatColor.DARK_GRAY).append("No ongoing investments yet.\n");
+            message.append(ChatColor.WHITE).append(ChatColor.ITALIC).append("No ongoing investments yet.\n");
         } else {
-            message.append(ChatColor.GRAY).append("Ongoing investments:\n");
+            message.append(ChatColor.WHITE).append(ChatColor.ITALIC).append("Ongoing investments:\n");
 
             // Loop through each stock and show the amount the player owns
             for (Map.Entry<String, Integer> entry : coins.entrySet()) {
@@ -547,31 +575,23 @@ public class StocksCommand implements CommandExecutor {
 
                 if (amount > 0) {
 
-                    int hourlyChange = pricingHandler.getPriceChange(stockName, "1h");
-                    int dailyChange = pricingHandler.getPriceChange(stockName, "24h");
-                    int weeklyChange = pricingHandler.getPriceChange(stockName, "7d");
-
                     int price = pricesConfig.getInt("Stocks." + stockName + ".Price");
 
-                    message.append(ChatColor.YELLOW).append(stockName)
-                            .append(": ").append(ChatColor.GREEN).append(amount)
-                            .append(" share(s)").append(ChatColor.GRAY)
-                            .append(" at ").append(ChatColor.YELLOW).append(price).append("$").append(ChatColor.GRAY)
-                            .append(" each.");
-
-                    message.append("\n")
-                            .append(ChatColor.GRAY).append("1h: ").append(getChangeColor(hourlyChange)).append(hourlyChange).append("% ")
-                            .append(ChatColor.GRAY).append("24h: ").append(getChangeColor(dailyChange)).append(dailyChange).append("% ")
-                            .append(ChatColor.GRAY).append("7d: ").append(getChangeColor(weeklyChange)).append(weeklyChange).append("% ")
-                            .append("\n");
+                    message.append(ChatColor.GOLD).append(stockName)
+                            .append(ChatColor.YELLOW).append(": ").append(ChatColor.GOLD).append(amount)
+                            .append(ChatColor.YELLOW).append(" share(s) at: ")
+                            .append(ChatColor.GOLD).append(price).append("$")
+                            .append(ChatColor.YELLOW).append(" each.\n");
                 }
             }
         }
 
-        message.append(ChatColor.DARK_GRAY).append("========================");
+        message.append(ChatColor.GOLD).append("========================");
 
-        // Send the message to the player
         sender.sendMessage(message.toString());
-        return true;
+    }
+
+    private Logger getLogger() {
+        return Bukkit.getLogger();
     }
 }

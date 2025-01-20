@@ -57,25 +57,46 @@ public class CryptoFrenzy extends JavaPlugin {
             loadPricesConfig();
         }
 
-        this.getCommand("stocks").setExecutor(new StocksCommand(this));
-        getCommand("stocks").setTabCompleter(new StocksTabCompleter(this));
-
-        this.getCommand("cryptofrenzy").setExecutor(new StocksCommand(this));
-        getCommand("cryptofrenzy").setTabCompleter(new StocksTabCompleter(this));
-
         if (getServer().getPluginManager().getPlugin("Vault") != null) {
             economy = Bukkit.getServicesManager().getRegistration(Economy.class).getProvider();
+            if (economy == null) {
+                getLogger().severe("No economy provider found! Please install an economy plugin for the plugin to function.");
+                getServer().getPluginManager().disablePlugin(this);
+                return;
+            }
             getLogger().info("Vault integration enabled.");
         } else {
             getLogger().warning("Vault not found! Please add Vault for plugin to work properly!");
         }
 
-        connectToPlayerDB();
         connectToStockDB();
+        connectToPlayerDB();
 
         pricingHandler = new PricingHandler(this);
+        playerData = new PlayerData(playerDBConnection, this);
+        stockHistory = new StockHistory(stockDBConnection, this);
 
         schedulePriceUpdate();
+
+        if (stockDBConnection == null && playerDBConnection == null) {
+            getLogger().severe("stockhistory.db NOT FOUND");
+            getLogger().severe("playerdata.db NOT FOUND");
+            getLogger().severe("PLEASE REPORT ERRORS AND SEND LOGS TO DEVS");
+            getServer().getPluginManager().disablePlugin(this);
+        } else if (stockDBConnection == null) {
+            getLogger().severe("stockhistory.db NOT FOUND");
+            getLogger().severe("PLEASE REPORT ERRORS AND SEND LOGS TO DEVS");
+            getServer().getPluginManager().disablePlugin(this);
+        } else if (playerDBConnection == null) {
+            getLogger().severe("playerdata.db NOT FOUND");
+            getLogger().severe("PLEASE REPORT ERRORS AND SEND LOGS TO DEVS");
+            getServer().getPluginManager().disablePlugin(this);
+        }
+        this.getCommand("stocks").setExecutor(new StocksCommand(this,stockHistory));
+        getCommand("stocks").setTabCompleter(new StocksTabCompleter(this));
+
+        this.getCommand("cryptofrenzy").setExecutor(new StocksCommand(this,stockHistory));
+        getCommand("cryptofrenzy").setTabCompleter(new StocksTabCompleter(this));
     }
 
     public void schedulePriceUpdate() {
@@ -87,7 +108,7 @@ public class CryptoFrenzy extends JavaPlugin {
             public void run() {
                 stockHistory.updateAllStockHistory();
                 stockHistory.removeOldHistory();
-                pricingHandler.updatePricesYMLfromHistory();
+                pricingHandler.updatePricesYMLFromHistory();
             }
         }.runTaskTimer(this, 0L, delayInSeconds * 20L);
     }
@@ -115,7 +136,7 @@ public class CryptoFrenzy extends JavaPlugin {
             // SQLite does not require the database to be created separately
             playerDBConnection = DriverManager.getConnection(url);
 
-            playerData = new PlayerData(playerDBConnection, this);
+            playerData = new PlayerData(playerDBConnection ,this);
             getLogger().info("Database connection established.");
 
             playerData.createTableIfNotExists();
@@ -126,7 +147,7 @@ public class CryptoFrenzy extends JavaPlugin {
         }
     }
 
-    public Connection getConnection() {
+    public Connection getStockDBConnection() {
         return this.stockDBConnection;
     }
 
@@ -198,7 +219,6 @@ public class CryptoFrenzy extends JavaPlugin {
 
     public void reloadPricesConfig() {
         pricesConfig = YamlConfiguration.loadConfiguration(pricesFile);
-        checkNewStocks();
     }
 
     public boolean generatePricesFile() {

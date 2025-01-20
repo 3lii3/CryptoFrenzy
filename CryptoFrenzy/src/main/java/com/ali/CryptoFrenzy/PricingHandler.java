@@ -6,7 +6,6 @@ import java.io.File;
 import java.io.IOException;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 
 public class PricingHandler {
 
@@ -19,7 +18,7 @@ public class PricingHandler {
         this.plugin = plugin;
         loadPricesFile();
 
-        Connection stockDBConnection = plugin.getConnection();
+        Connection stockDBConnection = plugin.getStockDBConnection();
 
         this.stockHistory = new StockHistory(stockDBConnection, plugin);
     }
@@ -42,12 +41,11 @@ public class PricingHandler {
     }
 
     // Method to get stock price
-    public double getPrice(String stockName) {
-        return pricesConfig.getDouble("Stocks." + stockName + ".Price");
-    }
+    public double getPrice(String stockName) {plugin.reloadPricesConfig(); return pricesConfig.getDouble("Stocks." + stockName + ".Price"); }
 
     // Method to get the percentage change for 1h, 24h, and 7d
     public int getPriceChange(String stockName, String timeFrame) {
+        plugin.reloadPricesConfig();
         double currentPrice = getPrice(stockName);
         double oldPrice = pricesConfig.getDouble("Stocks." + stockName + "." + timeFrame);
         return calculatePercentageChange(currentPrice, oldPrice);
@@ -62,14 +60,15 @@ public class PricingHandler {
     }
 
     public void adjustPriceBasedOnSupplyDemand(String stockName, int amount, boolean isBuying) {
+        plugin.reloadPricesConfig();
         if (!pricesConfig.contains("Stocks." + stockName)) {
             plugin.getLogger().warning("Stock not found in Prices.yml: " + stockName);
             return;
         }
 
         double currentPrice = pricesConfig.getDouble("Stocks." + stockName + ".Price");
-        int supply = pricesConfig.getInt("Stocks." + stockName + ".totalShares");
-        int demand = pricesConfig.getInt("Stocks." + stockName + ".market-shares");
+        long supply = pricesConfig.getInt("Stocks." + stockName + ".totalShares");
+        long demand = pricesConfig.getInt("Stocks." + stockName + ".market-shares");
 
         if (isBuying) {
             demand += amount;
@@ -87,34 +86,37 @@ public class PricingHandler {
         try {
             pricesConfig.save(pricesFile);
             plugin.getLogger().info("Stock price for " + stockName + " adjusted to: " + newPrice + " (Demand: " + demand + ")");
+            plugin.reloadPricesConfig();
+            plugin.getLogger().info("Reloaded prices config to update prices.");
         } catch (IOException e) {
             e.printStackTrace();
         }
-        updatePricesYMLfromHistory();
     }
 
     public double calculatePriceForEachShare(String stockName, int amount, boolean isBuying) {
+        plugin.reloadPricesConfig();
         double currentPrice = pricesConfig.getDouble("Stocks." + stockName + ".Price");
-        int tax = plugin.getConfig().getInt("economy.tax-rate");
-        int supply = pricesConfig.getInt("Stocks." + stockName + ".totalShares");
-        int demand = pricesConfig.getInt("Stocks." + stockName + ".market-shares");
+        long supply = pricesConfig.getLong("Stocks." + stockName + ".totalShares");
+        long demand = pricesConfig.getLong("Stocks." + stockName + ".market-shares");
 
         double priceForShare = currentPrice;
 
         for (int i = 0; i < amount; i++) {
-            double priceAdjustmentFactor = (1 + ((double)(demand - supply) / supply)) + (1 + ((double)tax / 100.0));
-            priceForShare *= priceAdjustmentFactor;
-
             if (isBuying) {
                 demand++;
             } else {
                 demand--;
             }
+
+            double priceAdjustmentFactor = (1 + ((double)(demand - supply) / supply));
+            priceForShare *= priceAdjustmentFactor;
         }
+        plugin.reloadPricesConfig();
         return priceForShare;
     }
 
-    public void updatePricesYMLfromHistory() {
+    public void updatePricesYMLFromHistory() {
+        plugin.reloadPricesConfig();
         for (String stock : pricesConfig.getConfigurationSection("Stocks").getKeys(false)) {
 
             Double hourPrice = stockHistory.getStock1hPrice(stock);

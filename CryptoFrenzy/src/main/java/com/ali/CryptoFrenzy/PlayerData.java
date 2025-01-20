@@ -10,17 +10,22 @@ import static org.bukkit.Bukkit.getLogger;
 
 public class PlayerData {
 
+    private final CryptoFrenzy plugin;
+
     private Connection connection;
-    private CryptoFrenzy plugin; // Add the plugin field
-    private static final Logger logger = Logger.getLogger(PlayerData.class.getName());
 
     // Modify the constructor to accept the plugin as a parameter
-    public PlayerData(Connection connection, CryptoFrenzy plugin) {
-        this.connection = connection;
+    public PlayerData(Connection connection,CryptoFrenzy plugin) {
         this.plugin = plugin;
+        this.connection = connection;
     }
 
     public void createTableIfNotExists() {
+        if (connection == null) {
+            getLogger().severe("Database connection is not established.");
+            return;
+        }
+
         try (Statement stmt = connection.createStatement()) {
             String createTableQuery = "CREATE TABLE IF NOT EXISTS player_data ("
                     + "uuid TEXT PRIMARY KEY, "
@@ -59,7 +64,7 @@ public class PlayerData {
             ps.setString(1, uuid);
             ps.setString(2, name);
             ps.executeUpdate();
-            System.out.println("New player " + name + " added to the database with UUID: " + uuid);  // Debugging line
+            getLogger().log(Level.INFO, "New player " + name + " added to the database with UUID: " + uuid);
 
             List<String> stocks = CryptoFrenzy.AvailableStocks();
 
@@ -71,13 +76,14 @@ public class PlayerData {
                 }
             }
         } catch (SQLException e) {
-            logger.log(Level.SEVERE, "Error adding new player", e);
+            getLogger().log(Level.SEVERE, "Error adding new player", e);
         }
     }
 
     public void addCoins(String uuid, String stock, int amount, String playerName) {
         if (!playerExists(uuid)) {
             addNewPlayer(uuid, playerName);  // Add the player if they don't exist
+            getLogger().log(Level.INFO, "Player doesn't exist, Adding player.");
         }
 
         // Now proceed to add coins to the specific stock for the player
@@ -106,16 +112,18 @@ public class PlayerData {
                     updatePS.setInt(1, amount);
                     updatePS.setString(2, uuid);
                     updatePS.executeUpdate();
+                    getLogger().log(Level.INFO, "Added "+amount+" of "+stock+" to "+playerName+" of UUID "+uuid);
                 }
             }
 
         } catch (SQLException e) {
-            logger.log(Level.SEVERE, "Error adding coins", e);
+            getLogger().log(Level.SEVERE, "Error adding coins", e);
         }
+        plugin.reloadPricesConfig();
     }
 
     // Remove coins from the player's stock.
-    public void removeCoins(String uuid, String stock, int amount) {
+    public boolean removeCoins(String uuid, String stock, int amount) {
         String selectCoinsSQL = "SELECT " + stock + " FROM player_data WHERE uuid = ?";
 
         try (PreparedStatement ps = connection.prepareStatement(selectCoinsSQL)) {
@@ -134,17 +142,24 @@ public class PlayerData {
                         updatePS.setInt(1, newAmount);
                         updatePS.setString(2, uuid);
                         updatePS.executeUpdate();
+                        getLogger().log(Level.INFO, "Removed "+amount+" of "+stock+" from UUID: "+uuid);
+                        plugin.reloadPricesConfig();
+                        return true;
                     }
                 } else {
-                    logger.warning("Not enough " + stock + " to remove.");
+                    getLogger().warning("Not enough " + stock + " to remove.");
+                    return false;
                 }
             } else {
-                logger.warning("Player not found or stock not available.");
+                getLogger().warning("Player not found or stock not available.");
+                return false;
             }
 
         } catch (SQLException e) {
-            logger.log(Level.SEVERE, "Error removing coins", e);
+            getLogger().log(Level.SEVERE, "Error removing coins", e);
         }
+        plugin.reloadPricesConfig();
+        return true;
     }
 
     // Fetch player's coin inventory.
@@ -170,9 +185,9 @@ public class PlayerData {
                 }
             }
         } catch (SQLException e) {
-            logger.log(Level.SEVERE, "Error fetching player coins", e);
+            getLogger().log(Level.SEVERE, "Error fetching player coins", e);
         }
-
+        plugin.reloadPricesConfig();
         return coins;
     }
 
@@ -185,7 +200,7 @@ public class PlayerData {
                 return rs.getInt(1) > 0;  // Return true if the count is greater than 0
             }
         } catch (SQLException e) {
-            logger.log(Level.SEVERE, "Error checking if player exists", e);
+            getLogger().log(Level.SEVERE, "Error checking if player exists", e);
         }
         return false;
     }

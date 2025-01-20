@@ -1,6 +1,5 @@
 package com.ali.CryptoFrenzy;
 
-import java.util.logging.Logger;
 import java.sql.*;
 import java.util.logging.Level;
 import java.util.List;
@@ -11,12 +10,12 @@ import java.io.File;
 
 public class StockHistory {
 
-    final private Connection connection;
+    private Connection connection;
     final private CryptoFrenzy plugin;
 
     public StockHistory(Connection connection, CryptoFrenzy plugin) {
-        this.connection = connection;
         this.plugin = plugin;
+        this.connection = connection;
     }
 
     public void updateAllStockHistory() {

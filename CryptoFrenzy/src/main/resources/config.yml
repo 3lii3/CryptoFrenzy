@@ -1,3 +1,4 @@
+# CryptoFrenzy Plugin Configuration
 
 player:
   cooldown:
@@ -8,15 +9,15 @@ player:
     time: 5
 
 # How frequent should the database update in minutes (Price history only, Don't set below 30 for best performance.)
-DatabaseUpdateFrequency: 5
+DatabaseUpdateFrequency: 30
 ## The stock database is only used to fetch for history like price before 1hr, 24hrs, 7ds and not anything extra.
 
 
 economy:
-  #Tax to get from player for each share, 10 is 10% / Advised: 2.5
-  tax-rate: 2.5
+  #Tax to get from player for each share, 1 is 1% / Default: 1
+  tax-rate: 1
   #Amount to deduct from player's balance for every transaction (leave 0 to disable):
-  market-fee: 5
+  market-fee: 2
 
 Events:
   #Randomly crash the market every few days
@@ -39,30 +40,30 @@ Stocks:
     #max-shares: 10
     #market-shares: 100000
 
-  BTC:
-    currency-name: "Bitcoin"
-    description: "A cryptocurrency coin."
+  CFZ:
+    currency-name: "CryptoFrenzy coin"
+    description: "A basic coin."
     #Starting price for one stock
     price: 100
     #Max shares owned by a single player
-    max-shares: 10000
+    max-shares: 100
     #Shares circulating in the market
-    market-shares: 6400000000
-  AAPL:
-    currency-name: "Apple LLC"
-    description: "Apple stocks."
+    market-shares: 10000
+  SVR:
+    currency-name: "Server Coin"
+    description: "Server's own stocks."
     #Starting price for one stock
-    price: 250
+    price: 120
     #Max shares owned by a single player
-    max-shares: 10000
+    max-shares: 100
     #Shares circulating in the market
-    market-shares: 15100000000
-  NVDA:
-    currency-name: "Nvidia Stocks"
-    description: "NVIDIA CORP stocks."
+    market-shares: 10000
+  MINC:
+    currency-name: "Minecraft coin"
+    description: "Minecraft's coins."
     #Starting price for one stock
-    price: 150
+    price: 60
     #Max shares owned by a single player
-    max-shares: 10000
+    max-shares: 100
     #Shares circulating in the market
-    market-shares: 24500000000
+    market-shares: 10000
