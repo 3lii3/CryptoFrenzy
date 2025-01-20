@@ -40,7 +40,80 @@ Check your favourite stock's information to learn more!
 
 ![3](https://github.com/user-attachments/assets/11293086-10c4-404e-bd00-2cb7fb67ecf3)
 
-## Formats:
-[Default Config](https://github.com/3lii3/CryptoFrenzy/blob/f53e71c4c9ade77340c4425fa7555ca427437941/CryptoFrenzy/src/main/resources/config.yml)
+## Default Configuration:
+<details>
+  <summary>View config</summary>
+  
+  ```yaml
+  # CryptoFrenzy Plugin Configuration
 
-[Adding stock format](https://github.com/3lii3/CryptoFrenzy/blob/f53e71c4c9ade77340c4425fa7555ca427437941/CryptoFrenzy/src/main/resources/config.yml#L43C1-L51C30)
+player:
+  cooldown:
+    # Shall cooldown be enabled? Default: true
+    # Advice: Enable the cooldown to avoid a lot of database requests and better performance.
+    enabled: true
+    # Time for cooldown in seconds (if enabled) Default: 5 seconds.
+    time: 5
+
+# How frequent should the database update in minutes (Price history only, Don't set below 30 for best performance.)
+DatabaseUpdateFrequency: 30
+## The stock database is only used to fetch for history like price before 1hr, 24hrs, 7ds and not anything extra.
+
+
+economy:
+  #Tax to get from player for each share, 1 is 1% / Default: 1
+  tax-rate: 1
+  #Amount to deduct from player's balance for every transaction (leave 0 to disable):
+  market-fee: 2
+
+Events:
+  #Randomly crash the market every few days
+  market-crash:
+    enabled: true
+    # minimum % for a market to go down
+    min-rate: 10
+    # maximum % for a market to go down
+    max-rate: 25
+
+Stocks:
+  #Make sure to have all stock shortnames in uppercase!
+
+  #format:
+
+  #stock:
+    #stock-name: "Stock"
+    #description: "Default description"
+    #price: 10000
+    #max-shares: 10
+    #market-shares: 100000
+
+  CFZ:
+    currency-name: "CryptoFrenzy coin"
+    description: "A basic coin."
+    #Starting price for one stock
+    price: 100
+    #Max shares owned by a single player
+    max-shares: 100
+    #Shares circulating in the market
+    market-shares: 10000
+  SVR:
+    currency-name: "Server Coin"
+    description: "Server's own stocks."
+    #Starting price for one stock
+    price: 120
+    #Max shares owned by a single player
+    max-shares: 100
+    #Shares circulating in the market
+    market-shares: 10000
+  MINC:
+    currency-name: "Minecraft coin"
+    description: "Minecraft's coins."
+    #Starting price for one stock
+    price: 60
+    #Max shares owned by a single player
+    max-shares: 100
+    #Shares circulating in the market
+    market-shares: 10000
+  ```
+  
+</details>
