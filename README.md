@@ -10,7 +10,7 @@ Add a new way to earn money in your minecraft server!
 ### Dynamic pricing using Supply & Demand!
 Get the best & most realistic system for pricing, Depending 100% on playerbase economy!
 
-### Market Crashes!
+### Market Crashes! (BETA)
 Random market crashes with prices dropping adding a new flavour to your minecraft server!
 
 ### Player investments portfolios!
@@ -21,6 +21,23 @@ Check your favourite stock's information to learn more!
 
 ## Commands:
 
+### Player commands:
+- **/stocks help** Shows help menu
+- **/stocks buy <stock> <amount>** Buys stocks.
+- **/stocks sell <stock> <amount>** Sells stocks.
+- **/stocks portfolio (player)** Shows player's portfolio (or other's).
+- **/stocks buy <stock> <amount>** Buys stocks.
+- **/stocks send <player> <stock> <amount>** Sends stocks to other players.
+- **/stocks fetch <stock>** Shows information about specific stock.
+
+### Admin commands:
+- **/stocks reload** Shows help menu
+- **/stocks add <player> <stock> <amount>** Adds stocks to a player.
+- **/stocks remove <player> <stock> <amount>** Removes stocks from a player.
+- **/stocks crash <stock>** Crashes a specific market.
+
+## Permissions:
+  
 ### Player permissions:
 - **stocks.buy** Allows player to buy stocks.
 - **stocks.sell** Allows player to sell stocks.
@@ -34,9 +51,10 @@ Check your favourite stock's information to learn more!
 - **stocks.cooldown** Allows player to skip command cooldown.
 
 ### Admin permissions:
-- **stocks.remove** Allows player to remove stocks from player (ADMIN).
-- **stocks.add** Allows player to add stocks to player (ADMIN).
+- **stocks.remove** Allows player to remove stocks from player.
+- **stocks.add** Allows player to add stocks to player.
 - **stocks.reload** Allows player to reload configurations.
+- **stocks.crash** Allows player to crash markets.
 
 ![3](https://github.com/user-attachments/assets/11293086-10c4-404e-bd00-2cb7fb67ecf3)
 
