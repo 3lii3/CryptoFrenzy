@@ -1,5 +1,5 @@
 name: CryptoFrenzy
-version: 1.0.1
+version: 1.1.0
 main: com.ali.CryptoFrenzy.CryptoFrenzy
 api-version: 1.21
 depend: [Vault]
@@ -13,6 +13,9 @@ commands:
     aliases: [crypto]
 
 permissions:
+  stocks.crash:
+    description: Allows user to crash a specific market.
+    default: op
   stocks.cooldown:
     description: Makes players skip cooldown.
     default: op

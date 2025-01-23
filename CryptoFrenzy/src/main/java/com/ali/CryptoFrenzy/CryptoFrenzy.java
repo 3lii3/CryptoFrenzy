@@ -24,6 +24,7 @@ public class CryptoFrenzy extends JavaPlugin {
     private static StockHistory stockHistory;
     private static PlayerData playerData;
     private static PricingHandler pricingHandler;
+    private static MarketCrashEvent marketCrashEvent;
 
     private Connection playerDBConnection;
     private Connection stockDBConnection;
@@ -72,6 +73,7 @@ public class CryptoFrenzy extends JavaPlugin {
         connectToStockDB();
         connectToPlayerDB();
 
+        marketCrashEvent = new MarketCrashEvent(this);
         pricingHandler = new PricingHandler(this);
         playerData = new PlayerData(playerDBConnection, this);
         stockHistory = new StockHistory(stockDBConnection, this);
@@ -199,6 +201,10 @@ public class CryptoFrenzy extends JavaPlugin {
 
     public static StockHistory getStockHistory() {
         return stockHistory;
+    }
+
+    public void crashMarket(String stock) {
+        marketCrashEvent.triggerCrash(stock);
     }
 
     public void loadPricesConfig() {

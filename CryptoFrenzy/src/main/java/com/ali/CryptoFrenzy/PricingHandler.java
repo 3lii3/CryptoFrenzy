@@ -59,16 +59,17 @@ public class PricingHandler {
         return (int) (((currentPrice - oldPrice) / oldPrice) * 100);
     }
 
-    public void adjustPriceBasedOnSupplyDemand(String stockName, int amount, boolean isBuying) {
+    public boolean adjustPriceBasedOnSupplyDemand(String stockName, int amount, boolean isBuying) {
+        FileConfiguration config = plugin.getConfig();
         plugin.reloadPricesConfig();
         if (!pricesConfig.contains("Stocks." + stockName)) {
             plugin.getLogger().warning("Stock not found in Prices.yml: " + stockName);
-            return;
+            return false;
         }
 
-        double currentPrice = pricesConfig.getDouble("Stocks." + stockName + ".Price");
-        long supply = pricesConfig.getInt("Stocks." + stockName + ".totalShares");
-        long demand = pricesConfig.getInt("Stocks." + stockName + ".market-shares");
+        double basePrice = config.getDouble("Stocks." + stockName + ".price");
+        long supply = pricesConfig.getLong("Stocks." + stockName + ".totalShares");
+        long demand = pricesConfig.getLong("Stocks." + stockName + ".market-shares");
 
         if (isBuying) {
             demand += amount;
@@ -76,43 +77,42 @@ public class PricingHandler {
             demand -= amount;
         }
 
-        // Adjust the price based on the supply-demand system
         double priceAdjustmentFactor = 1 + ((double)(demand - supply) / supply);
-        double newPrice = currentPrice * priceAdjustmentFactor;
+        double newPrice = basePrice * priceAdjustmentFactor;
 
         pricesConfig.set("Stocks." + stockName + ".Price", newPrice);
         pricesConfig.set("Stocks." + stockName + ".market-shares", demand);
+        pricesConfig.set("Stocks." + stockName + ".totalShares", supply);
 
         try {
             pricesConfig.save(pricesFile);
-            plugin.getLogger().info("Stock price for " + stockName + " adjusted to: " + newPrice + " (Demand: " + demand + ")");
+            plugin.getLogger().info("Stock price for " + stockName + " adjusted to: " + newPrice + " (Demand: " + demand + ", Supply: "+ supply +")");
             plugin.reloadPricesConfig();
+            Reload();
             plugin.getLogger().info("Reloaded prices config to update prices.");
+            return true;
         } catch (IOException e) {
             e.printStackTrace();
+            return false;
         }
     }
 
     public double calculatePriceForEachShare(String stockName, int amount, boolean isBuying) {
         plugin.reloadPricesConfig();
-        double currentPrice = pricesConfig.getDouble("Stocks." + stockName + ".Price");
-        long supply = pricesConfig.getLong("Stocks." + stockName + ".totalShares");
-        long demand = pricesConfig.getLong("Stocks." + stockName + ".market-shares");
+        double basePrice = plugin.getConfig().getDouble("Stocks." + stockName + ".price");
+        double supply = pricesConfig.getLong("Stocks." + stockName + ".totalShares");
+        double demand = pricesConfig.getLong("Stocks." + stockName + ".market-shares");
 
-        double priceForShare = currentPrice;
-
-        for (int i = 0; i < amount; i++) {
-            if (isBuying) {
-                demand++;
-            } else {
-                demand--;
-            }
-
-            double priceAdjustmentFactor = (1 + ((double)(demand - supply) / supply));
-            priceForShare *= priceAdjustmentFactor;
+        if (isBuying) {
+            demand += amount;
+        } else {
+            demand -= amount;
         }
-        plugin.reloadPricesConfig();
-        return priceForShare;
+
+        double formula = 1 + (demand - supply) / supply;
+        double newPrice = basePrice * formula;
+
+        return newPrice;
     }
 
     public void updatePricesYMLFromHistory() {

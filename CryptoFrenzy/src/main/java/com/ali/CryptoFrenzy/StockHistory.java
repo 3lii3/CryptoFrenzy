@@ -94,10 +94,6 @@ public class StockHistory {
                     getLogger().info("Added missing '" + stock + "' column to the stock_history table.");
                 }
             }
-
-            Timestamp roundedTimestamp = roundToNearestHalfHour(new Timestamp(System.currentTimeMillis()));
-            System.out.println("Rounded timestamp for stock update: " + roundedTimestamp);
-
         } catch (SQLException e) {
             getLogger().log(Level.SEVERE, "Error checking for new currencies", e);
         }
@@ -105,7 +101,6 @@ public class StockHistory {
 
     public void createTableIfNotExists() {
         try (Statement stmt = connection.createStatement()) {
-            // Create table if it doesn't exist (for SQLite, using AUTOINCREMENT)
             String createTableQuery = "CREATE TABLE IF NOT EXISTS stock_history ("
                     + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
                     + "recorded_at DATETIME)";
@@ -130,7 +125,6 @@ public class StockHistory {
                 }
             }
 
-            // Round the timestamp after table creation
             Timestamp roundedTimestamp = roundToNearestHalfHour(new Timestamp(System.currentTimeMillis()));
             System.out.println("Rounded timestamp for table creation: " + roundedTimestamp);
 
@@ -156,19 +150,18 @@ public class StockHistory {
 
     private double getStockPrice(String query, long timeInterval) {
         try (PreparedStatement pstmt = connection.prepareStatement(query)) {
-            // Set the timestamp for the requested time interval
             long timeThreshold = System.currentTimeMillis() - timeInterval;
             pstmt.setTimestamp(1, new Timestamp(timeThreshold));
 
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
-                    return rs.getDouble(1);  // Return the price from the column
+                    return rs.getDouble(1);
                 }
             }
         } catch (SQLException e) {
             getLogger().log(Level.SEVERE, "Error retrieving stock price", e);
         }
-        return -1;  // Return -1 if no price is found
+        return -1;
     }
 
     public void removeOldHistory() {

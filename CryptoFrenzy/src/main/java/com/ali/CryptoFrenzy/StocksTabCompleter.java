@@ -29,7 +29,7 @@ public class StocksTabCompleter implements TabCompleter {
 
         if (args.length == 1) {
             if (sender.hasPermission("stocks.help.admin")) {
-                List<String> subcommands = Arrays.asList("list", "buy", "sell", "fetch", "help", "portfolio", "send", "reload", "add", "remove");
+                List<String> subcommands = Arrays.asList("list", "buy", "sell", "fetch", "help", "portfolio", "send", "reload", "add", "remove","crash");
                 for (String subcommand : subcommands) {
                     if (subcommand.toLowerCase().startsWith(args[0].toLowerCase())) {
                         suggestions.add(subcommand);
@@ -50,12 +50,18 @@ public class StocksTabCompleter implements TabCompleter {
             String subcommand = args[0].toLowerCase();
 
             // Show available stocks
-            if (subcommand.equalsIgnoreCase("buy") || subcommand.equalsIgnoreCase("sell") || subcommand.equalsIgnoreCase("fetch")) {
+            if (subcommand.equalsIgnoreCase("buy") || subcommand.equalsIgnoreCase("sell") || subcommand.equalsIgnoreCase("fetch") || (sender.hasPermission("stocks.crash") && subcommand.equalsIgnoreCase("crash"))) {
                 List<String> stockNames = new ArrayList<>(plugin.getPricesConfig().getConfigurationSection("Stocks").getKeys(false));
                 for (String stock : stockNames) {
                     if (stock.toLowerCase().startsWith(args[1].toLowerCase())) {
                         suggestions.add(stock);
                     }
+                }
+                return suggestions;
+            }
+            if (sender.hasPermission("stocks.crash") && subcommand.equalsIgnoreCase("crash")) {
+                if ("confirm".toLowerCase().startsWith(args[1].toLowerCase())) {
+                    suggestions.add("confirm");
                 }
                 return suggestions;
             }

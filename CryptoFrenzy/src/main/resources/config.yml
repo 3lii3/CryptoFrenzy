@@ -1,5 +1,9 @@
 # CryptoFrenzy Plugin Configuration
 
+#Check for updates when enabling plugin?
+notifyUpdate: true
+
+# Player configuration
 player:
   cooldown:
     # Shall cooldown be enabled? Default: true
@@ -10,24 +14,55 @@ player:
 
 # How frequent should the database update in minutes (Price history only, Don't set below 30 for best performance.)
 DatabaseUpdateFrequency: 30
-## The stock database is only used to fetch for history like price before 1hr, 24hrs, 7ds and not anything extra.
+## The stock database is only used to fetch for history like price before 1h, 24h, 7d and not anything extra.
 
-
+# Economy configuration
 economy:
-  #Tax to get from player for each share, 1 is 1% / Default: 1
-  tax-rate: 1
+  #Tax to get from player for each share, 1 is 1% / Default: 1.0
+  tax-rate: 1.0
   #Amount to deduct from player's balance for every transaction (leave 0 to disable):
-  market-fee: 2
+  market-fee: 0.0
 
+# Random events configuration
 Events:
   #Randomly crash the market every few days
   market-crash:
     enabled: true
+    # How frequent should the crashes be? (Format: "1d" = 1 day, "12h" = 12 hours)
+    crash-frequency: "16h"
+    # ^ Formats:
+    # d (day)
+    # h (hour)
+
+    # Warn players before crashing market?
+    crash-warning: true
+    # Broadcast crashes?
+    crash-broadcast: true
     # minimum % for a market to go down
-    min-rate: 10
+    min-rate: 15
     # maximum % for a market to go down
     max-rate: 25
+    # Should the /market crash command be enabled?
+    command-enabled: true
+    # Recovery options
+    market-recovery:
+      enabled: true
+      # minimum % for a market to recover
+      min-rate: 25
+      # maximum % for a market to recover
+      max-rate: 60
+      # After for many minutes shall the market recover? (Recovery rate is linear)
+      recover-duration: 10
+      # (Recovery in 10 minutes is fast, 120 minutes is slow)
 
+      # Shall server broadcast a recovery message after a market crash?
+      recovery-broadcast: true
+
+      # Recovery / crash logic:
+      # Crash rate is between min-max-rates, So if it's 50, and demand was 1000 it drops to 500 in demand, causing prices to go down.
+      # And if recovery rate is 25, It will be 25% of 500(Crashed amount) which is 125, So demand will go up to 625.
+
+# Stocks configuration (You can add stocks here)
 Stocks:
   #Make sure to have all stock shortnames in uppercase!
 
@@ -48,7 +83,7 @@ Stocks:
     #Max shares owned by a single player
     max-shares: 100
     #Shares circulating in the market
-    market-shares: 10000
+    market-shares: 100000
   SVR:
     currency-name: "Server Coin"
     description: "Server's own stocks."
@@ -56,8 +91,8 @@ Stocks:
     price: 120
     #Max shares owned by a single player
     max-shares: 100
-    #Shares circulating in the market
-    market-shares: 10000
+    #Shares circulating in the market (Should be more than server's shares)
+    market-shares: 100000
   MINC:
     currency-name: "Minecraft coin"
     description: "Minecraft's coins."
@@ -66,4 +101,4 @@ Stocks:
     #Max shares owned by a single player
     max-shares: 100
     #Shares circulating in the market
-    market-shares: 10000
+    market-shares: 100000

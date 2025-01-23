@@ -10,13 +10,12 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.OfflinePlayer;
-
+import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.Sound;
 
 import java.util.Map;
 import java.util.Objects;
 import java.util.HashMap;
-import java.util.UUID;
 import java.util.logging.Logger;
 
 public class StocksCommand implements CommandExecutor {
@@ -27,6 +26,8 @@ public class StocksCommand implements CommandExecutor {
     private StockHistory stockHistory;
 
     private Map<Player, Long> lastCommandTime = new HashMap<>();
+    private Map<Player, String> pendingCrash = new HashMap<>();
+
 
     public StocksCommand(CryptoFrenzy plugin, StockHistory stockHistory) {
         this.plugin = plugin;
@@ -38,8 +39,16 @@ public class StocksCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage("This command can only be run by a player.");
-            return false;
+            if (args.length > 0 && args[0].toString().equalsIgnoreCase("reload")) {
+                plugin.reloadConfig();
+                pricingHandler.Reload();
+                stockHistory.CheckForNewCurrencies();
+                sender.sendMessage(ChatColor.GREEN + "All plugin configurations have been re-loaded.");
+                return true;
+            } else {
+                sender.sendMessage(ChatColor.RED +"This command can only be run by a player.");
+                return false;
+            }
         }
 
         Player player = (Player) sender;
@@ -50,18 +59,16 @@ public class StocksCommand implements CommandExecutor {
 
         // Apply cooldown only for buy/sell commands and if the player doesn't have stocks.cooldown tag
         if (cooldownEnabled && !hasCooldownTag && (command.getName().equalsIgnoreCase("stock") && (args.length > 0 && (args[0].equalsIgnoreCase("buy") || args[0].equalsIgnoreCase("sell"))))) {
-            int cooldownTime = plugin.getConfig().getInt("player.cooldown.time") * 1000; // Convert to milliseconds
+            int cooldownTime = plugin.getConfig().getInt("player.cooldown.time") * 1000; // Convert secs to ms
             long currentTime = System.currentTimeMillis();
             long lastTime = lastCommandTime.getOrDefault(player, 0L);
 
             if (currentTime - lastTime < cooldownTime) {
-                long timeRemaining = (cooldownTime - (currentTime - lastTime)) / 1000;
+                long timeRemaining = (cooldownTime - (currentTime - lastTime)) / 1000; // convert ms to secs again.
                 player.sendMessage(ChatColor.RED + "You must wait " + timeRemaining + " seconds before using this command again.");
                 player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                 return false;
             }
-
-            // Update the last command time
             lastCommandTime.put(player, currentTime);
         }
 
@@ -202,10 +209,15 @@ public class StocksCommand implements CommandExecutor {
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                     return false;
                 }
+                if (args[1].toString() == player.getName()) {
+                    player.sendMessage(ChatColor.RED + "You can't send shares to your self!");
+                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+                    return false;
+                }
                 if (!pricesConfig.contains("Stocks." + args[2].toUpperCase())) {
                     player.sendMessage(ChatColor.RED + "The stock " + args[1].toUpperCase() + " does not exist.");
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
-                    break;
+                    return false;
                 }
                 if (!Bukkit.getOfflinePlayer(args[1].toString()).hasPlayedBefore()) {
                     player.sendMessage(ChatColor.RED+"This player has never played before.");
@@ -223,7 +235,7 @@ public class StocksCommand implements CommandExecutor {
                     return false;
                 }
                 if (args.length < 2) {
-                    player.sendMessage(ChatColor.RED + "Wrong command usage! Usage: " + ChatColor.YELLOW + "/stocks fetch <Player> <Stock> <Amount>");
+                    player.sendMessage(ChatColor.RED + "Wrong command usage! Usage: " + ChatColor.YELLOW + "/stocks fetch <Stock>");
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                     return false;
                 }
@@ -283,7 +295,60 @@ public class StocksCommand implements CommandExecutor {
                     HelpMessage(player, false);
                 }
                 break;
+            case "crash":
+                boolean crashEnabled = plugin.getConfig().getBoolean("Events.market-crash.enabled");
+                boolean commandEnabled = plugin.getConfig().getBoolean("Events.market-crash.command-enabled");
 
+                if (!player.hasPermission("stocks.crash")) {
+                    player.sendMessage(ChatColor.RED + "You do not have permission to use this command.");
+                    return false;
+                }
+                if (!crashEnabled) {
+                    player.sendMessage(ChatColor.RED + "This feature is not enabled in the config.");
+                    return false;
+                } else if (!commandEnabled) {
+                    player.sendMessage(ChatColor.RED + "This command is not enabled in the config.");
+                    return false;
+                }
+
+                if (args.length >= 3 && args[2].equalsIgnoreCase("confirm")) {
+                    if (pendingCrash.containsKey(player)) {
+                        String stockToCrash = pendingCrash.get(player);
+                        pendingCrash.remove(player);
+
+                        // Trigger the crash
+                        plugin.crashMarket(stockToCrash);
+                        player.sendMessage(ChatColor.GREEN + "Market crash confirmed for stock: " + ChatColor.YELLOW + stockToCrash);
+                    } else {
+                        player.sendMessage(ChatColor.RED + "No crash pending. Use /stocks crash <stock> to initiate.");
+                    }
+                    return true;
+                }
+
+                if (args.length < 2) {
+                    player.sendMessage(ChatColor.RED + "Wrong command usage! Usage: " + ChatColor.YELLOW + "/stocks crash <stock>");
+                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+                    return false;
+                }
+
+                String stock = args[1];
+                pendingCrash.put(player, stock);
+                player.sendMessage(ChatColor.RED + "You are about to crash the market for stock: " + ChatColor.YELLOW + stock);
+                player.sendMessage(ChatColor.RED + "Type " + ChatColor.YELLOW + "/stocks crash <stock> confirm " + ChatColor.RED + "within 10 seconds to confirm.");
+
+                // Schedule a task to remove pending confirmation after 10 seconds
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        if (pendingCrash.containsKey(player)) {
+                            pendingCrash.remove(player);
+                            player.sendMessage(ChatColor.RED + "Market crash canceled due to timeout.");
+                            player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+                        }
+                    }
+                }.runTaskLater(plugin, 200L); // 200 ticks = 10 seconds
+
+                break;
             default:
                 player.sendMessage(ChatColor.RED + "Unknown subcommand. Type " + ChatColor.YELLOW + "/stocks help" + ChatColor.RED + " for available commands.");
                 player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
@@ -347,8 +412,8 @@ public class StocksCommand implements CommandExecutor {
     private boolean handleCryptoFrenzyCommand(Player player) {
         String message = ChatColor.GOLD + "===== " + ChatColor.YELLOW + "CryptoFrenzy Plugin" + ChatColor.GOLD + " ======\n" +
                          ChatColor.WHITE + "Hello user! This plugin was created by 3lii3! You can find this plugin in the following links: \n" +
-                         ChatColor.WHITE + "Discord: " + ChatColor.BLUE + ChatColor.ITALIC + ChatColor.UNDERLINE + "https://discord.gg/wjcNcY5UDr \n" +
-                         ChatColor.WHITE + "SpigotMC: " + ChatColor.BLUE + ChatColor.ITALIC + ChatColor.UNDERLINE + "https://spigotmc.org/resources/*coming soon* \n" +
+                         ChatColor.WHITE + "Discord: " + ChatColor.BLUE + ChatColor.ITALIC + ChatColor.UNDERLINE + "https://discord.gg/Fx8PrMH9Mr \n" +
+                         ChatColor.WHITE + "SpigotMC: " + ChatColor.BLUE + ChatColor.ITALIC + ChatColor.UNDERLINE + "https://www.spigotmc.org/resources/cryptofrenzy.122061/ \n" +
                          ChatColor.WHITE + "GitHub: " + ChatColor.BLUE + ChatColor.ITALIC + ChatColor.UNDERLINE + "https://github.com/3lii3/CryptoFrenzy\n" +
                          ChatColor.GOLD + "==============================\n";
         player.sendMessage(message);
@@ -361,7 +426,7 @@ public class StocksCommand implements CommandExecutor {
 
         StringBuilder message = new StringBuilder();
         message.append(ChatColor.GOLD).append("===== ").append(ChatColor.YELLOW).append("STOCK MARKET").append(ChatColor.GOLD).append(" =====\n");
-        plugin.reloadPricesConfig();
+        pricingHandler.Reload();
 
         for (String stock : stocks) {
             int price = pricesConfig.getInt("Stocks." + stock + ".Price");
@@ -394,48 +459,53 @@ public class StocksCommand implements CommandExecutor {
 
         getLogger().info(player.getName() + " is trying to purchase " + amount + " shares of " + stock);
         Map<String, Integer> coins = playerData.fetchPlayerCoins(player.getUniqueId().toString());
-
-        if (!coins.isEmpty()) {
-            for (Map.Entry<String, Integer> entry : coins.entrySet()) {
-                String stockName = entry.getKey();
-                int CoinAmount = entry.getValue();
-                if (Objects.equals(stockName, stock)) {
-                    if (CoinAmount >= maxAmount) {
-                        getLogger().info(player.getName() + " tries to buy large amount of stocks");
-                        player.sendMessage(ChatColor.RED + "You can't have more than " + ChatColor.YELLOW + maxAmount + ChatColor.RED + " shares of " + ChatColor.YELLOW + stock + ChatColor.RED + ", You currently have: " + ChatColor.YELLOW + CoinAmount);
-                        player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
-                    } else {
-                        if (economy.has(player, totalPrice)) {
-                            economy.withdrawPlayer(player, totalPrice);
-                            getLogger().info(player.getName() + " bought "+amount+" shares of "+stock+" for "+totalPrice);
-                            player.sendMessage(ChatColor.GREEN + "Successfully bought " + amount + " shares of " + stock + " for " + totalPrice + "$.");
-                            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
-                            pricingHandler.adjustPriceBasedOnSupplyDemand(stock, amount, true);
-
-                            CryptoFrenzy.getPlayerData().addCoins(player.getUniqueId().toString(), stock, amount, player.getName());
-                        } else {
-                            getLogger().info(player.getName() + " lacking funds to buy stock.");
-                            double AmountNeeded = totalPrice - economy.getBalance(player);
-                            player.sendMessage(ChatColor.RED + "You need " + ChatColor.YELLOW + AmountNeeded + ChatColor.RED + " more to buy this amount of stocks!");
+        if (amount <= maxAmount ) {
+            if (!coins.isEmpty()) {
+                for (Map.Entry<String, Integer> entry : coins.entrySet()) {
+                    String stockName = entry.getKey();
+                    int CoinAmount = entry.getValue();
+                    if (Objects.equals(stockName, stock)) {
+                        if (CoinAmount + amount > maxAmount) {
+                            getLogger().info(player.getName() + " tries to buy large amount of stocks");
+                            player.sendMessage(ChatColor.RED + "You can't have more than " + ChatColor.YELLOW + maxAmount + ChatColor.RED + " shares of " + ChatColor.YELLOW + stock + ChatColor.RED + ", You currently have: " + ChatColor.YELLOW + CoinAmount);
                             player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+                        } else {
+                            if (economy.has(player, totalPrice)) {
+                                economy.withdrawPlayer(player, totalPrice);
+                                getLogger().info(player.getName() + " bought " + amount + " shares of " + stock + " for " + totalPrice);
+                                player.sendMessage(ChatColor.GREEN + "Successfully bought " + amount + " shares of " + stock + " for " + totalPrice + "$.");
+                                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+                                pricingHandler.adjustPriceBasedOnSupplyDemand(stock, amount, true);
+
+                                CryptoFrenzy.getPlayerData().addCoins(player.getUniqueId().toString(), stock, amount, player.getName());
+                            } else {
+                                getLogger().info(player.getName() + " lacking funds to buy stock.");
+                                double AmountNeeded = totalPrice - economy.getBalance(player);
+                                player.sendMessage(ChatColor.RED + "You need " + ChatColor.YELLOW + AmountNeeded + ChatColor.RED + " more to buy this amount of stocks!");
+                                player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+                            }
                         }
                     }
                 }
+            } else {
+                if (economy.has(player, totalPrice)) {
+                    economy.withdrawPlayer(player, totalPrice);
+                    getLogger().info(player.getName() + " bought " + amount + " shares of " + stock + " for " + totalPrice);
+                    player.sendMessage(ChatColor.GREEN + "Successfully bought " + amount + " shares of " + stock + " for " + totalPrice + "$.");
+                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+                    pricingHandler.adjustPriceBasedOnSupplyDemand(stock, amount, true);
+                    CryptoFrenzy.getPlayerData().addCoins(player.getUniqueId().toString(), stock, amount, player.getName());
+                } else {
+                    getLogger().info(player.getName() + " lacking funds to buy stock.");
+                    double AmountNeeded = totalPrice - economy.getBalance(player);
+                    player.sendMessage(ChatColor.RED + "You need " + ChatColor.YELLOW + AmountNeeded + ChatColor.RED + " more to buy this amount of stocks!");
+                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+                }
             }
         } else {
-            if (economy.has(player, totalPrice)) {
-                economy.withdrawPlayer(player, totalPrice);
-                getLogger().info(player.getName() + " bought "+amount+" shares of "+stock+" for "+totalPrice);
-                player.sendMessage(ChatColor.GREEN + "Successfully bought " + amount + " shares of " + stock + " for " + totalPrice + "$.");
-                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
-                pricingHandler.adjustPriceBasedOnSupplyDemand(stock, amount, true);
-                CryptoFrenzy.getPlayerData().addCoins(player.getUniqueId().toString(), stock, amount, player.getName());
-            } else {
-                getLogger().info(player.getName() + " lacking funds to buy stock.");
-                double AmountNeeded = totalPrice - economy.getBalance(player);
-                player.sendMessage(ChatColor.RED + "You need " + ChatColor.YELLOW + AmountNeeded + ChatColor.RED + " more to buy this amount of stocks!");
-                player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
-            }
+            getLogger().info(player.getName() + " tries to buy large amount of stocks");
+            player.sendMessage(ChatColor.RED + "You can't have more than " + ChatColor.YELLOW + maxAmount + ChatColor.RED + " shares of " + ChatColor.YELLOW + stock + ChatColor.RED + " !");
+            player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
         }
     }
 
@@ -490,8 +560,11 @@ public class StocksCommand implements CommandExecutor {
 
         FileConfiguration config = plugin.getConfig();
 
-        int marketShares = (int) config.getLong("Stocks."+stock.toUpperCase() +".market-shares");
-        int marketCap = marketShares * price;
+        long marketShares = config.getLong("Stocks."+stock.toUpperCase() +".market-shares");
+        long marketCap = marketShares * price;
+        long serverShares = config.getLong("Stocks."+stock.toUpperCase() +".server-shares");
+
+        long playerShares = pricesConfig.getLong("Stocks."+stock.toUpperCase()+".playerMarket");
 
         String Description = config.getString("Stocks."+stock.toUpperCase() +".description");
         String StockName = config.getString("Stocks."+stock.toUpperCase() +".currency-name");
@@ -499,9 +572,11 @@ public class StocksCommand implements CommandExecutor {
         String message = ChatColor.GOLD + "===== " + ChatColor.YELLOW + StockName + " (" + stock.toUpperCase() + ")" +
                         ChatColor.GOLD + " =====\n" +
                         ChatColor.YELLOW + "Description: " + ChatColor.WHITE + Description +
-                        ChatColor.YELLOW + "\nStock Market-Cap: " + ChatColor.WHITE + marketCap +
-                        ChatColor.YELLOW + "\nStock Market Shares: " + ChatColor.WHITE + marketShares +
-                        ChatColor.WHITE + "\nPrice: " + ChatColor.YELLOW + price + "$ " +
+                        ChatColor.YELLOW + "\n\nMarket Cap: " + ChatColor.WHITE + marketCap +
+                        ChatColor.YELLOW + "\nCirculating Shares: " + ChatColor.WHITE + marketShares +
+                        ChatColor.YELLOW + "\n\n Server Shares:" + ChatColor.WHITE + serverShares +
+                        ChatColor.YELLOW + "\n Available Shares:" + ChatColor.WHITE + playerShares +
+                        ChatColor.WHITE + "\n\nPrice: " + ChatColor.YELLOW + price + "$ " +
                         ChatColor.WHITE + "1h: " + getChangeColor(hourlyChange) + hourlyChange + "% " +
                         ChatColor.WHITE + "24h: " + getChangeColor(dailyChange) + dailyChange + "% " +
                         ChatColor.WHITE + "7d: " + getChangeColor(weeklyChange) + weeklyChange + "% " +
@@ -545,7 +620,8 @@ public class StocksCommand implements CommandExecutor {
             message.append(ChatColor.WHITE).append("- ").append(ChatColor.YELLOW).append("/stocks send <Player> <Stock> <Amount> ").append(ChatColor.WHITE).append("Sends stocks to another player/\n");
             message.append(ChatColor.WHITE).append("- ").append(ChatColor.YELLOW).append("/stocks add <Player> <Stock> <Amount> ").append(ChatColor.WHITE).append("Adds shares to a player\n");
             message.append(ChatColor.WHITE).append("- ").append(ChatColor.YELLOW).append("/stocks remove <Player> <Stock> <Amount> ").append(ChatColor.WHITE).append("Removes shares from a player\n");
-            message.append(ChatColor.WHITE).append("- ").append(ChatColor.YELLOW).append("/stocks reload ").append(ChatColor.RED).append("Dangerous command").append(ChatColor.WHITE).append(" Reloads all configurations\n");
+            message.append(ChatColor.WHITE).append("- ").append(ChatColor.YELLOW).append("/stocks crash <Stock> ").append(ChatColor.RED).append("*Dangerous command* ").append(ChatColor.WHITE).append("Crashes specified market.\n");
+            message.append(ChatColor.WHITE).append("- ").append(ChatColor.YELLOW).append("/stocks reload ").append(ChatColor.RED).append("*Dangerous command* ").append(ChatColor.WHITE).append(" Reloads all configurations\n");
             message.append(ChatColor.GOLD).append("========================");
 
             player.sendMessage(message.toString());
@@ -568,10 +644,11 @@ public class StocksCommand implements CommandExecutor {
         } else {
             message.append(ChatColor.WHITE).append(ChatColor.ITALIC).append("Ongoing investments:\n");
 
-            // Loop through each stock and show the amount the player owns
             for (Map.Entry<String, Integer> entry : coins.entrySet()) {
                 String stockName = entry.getKey();
                 int amount = entry.getValue();
+
+                pricingHandler.Reload();
 
                 if (amount > 0) {
 
@@ -585,7 +662,6 @@ public class StocksCommand implements CommandExecutor {
                 }
             }
         }
-
         message.append(ChatColor.GOLD).append("========================");
 
         sender.sendMessage(message.toString());

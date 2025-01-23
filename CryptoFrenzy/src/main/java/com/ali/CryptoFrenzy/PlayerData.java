@@ -1,6 +1,5 @@
 package com.ali.CryptoFrenzy;
 
-import java.util.logging.Logger;
 import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
@@ -14,7 +13,6 @@ public class PlayerData {
 
     private Connection connection;
 
-    // Modify the constructor to accept the plugin as a parameter
     public PlayerData(Connection connection,CryptoFrenzy plugin) {
         this.plugin = plugin;
         this.connection = connection;
