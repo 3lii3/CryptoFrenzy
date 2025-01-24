@@ -5,7 +5,7 @@
 
     <groupId>com.ali</groupId>
     <artifactId>CryptoFrenzy</artifactId>
-    <version>1.0.1</version>
+    <version>1.1.0</version>
     <description>Your ultimate minecraft stocks plugin.</description>
 
     <properties>
